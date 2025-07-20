@@ -338,6 +338,7 @@ class _SalesPageState extends State<SalesPage> {
     );
   }
 
+
   /// Show confirmation dialog with Yes/No options
   /// Used for delete confirmations
   Future<bool> _showConfirmationDialog(String title, String message) async {
