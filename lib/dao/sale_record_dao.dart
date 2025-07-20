@@ -3,7 +3,7 @@ import 'package:floor/floor.dart';
 import '../models/sale_record.dart';
 
 /**
- * Data Access Object for SaleRecordEntity
+ * Data Access Object for SaleRecord entity
  * Provides database operations for sales records
  *
  * Project Requirements Addressed:
@@ -15,10 +15,11 @@ abstract class SaleRecordDao {
   /**
    * Retrieve all sale records from the database
    * Used to populate ListView with existing records
+   * Ordered by ID in descending order (newest first)
    *
    * @return Future containing list of all sale records
    */
-  @Query('SELECT * FROM SaleRecordEntity ORDER BY id DESC')
+  @Query('SELECT * FROM SaleRecord ORDER BY id DESC')
   Future<List<SaleRecord>> findAllSaleRecords();
 
   /**
@@ -58,16 +59,45 @@ abstract class SaleRecordDao {
    * @param id - ID of the sale record to delete
    * @return Future that completes when deletion is done
    */
-  @Query('DELETE FROM SaleRecordEntity WHERE id = :id')
+  @Query('DELETE FROM SaleRecord WHERE id = :id')
   Future<void> deleteSaleRecordById(int id);
 
   /**
-   * Find sale record by customer ID
+   * Find sale records by customer ID
    * Useful for customer-specific queries
    *
    * @param customerId - Customer ID to search for
    * @return Future containing list of sales for the customer
    */
-  @Query('SELECT * FROM SaleRecordEntity WHERE customerId = :customerId')
+  @Query('SELECT * FROM SaleRecord WHERE customerId = :customerId ORDER BY id DESC')
   Future<List<SaleRecord>> findSalesByCustomer(int customerId);
+
+  /**
+   * Find sale records by car ID
+   * Useful for tracking which cars have been sold
+   *
+   * @param carId - Car ID to search for
+   * @return Future containing list of sales for the car
+   */
+  @Query('SELECT * FROM SaleRecord WHERE carId = :carId ORDER BY id DESC')
+  Future<List<SaleRecord>> findSalesByCar(int carId);
+
+  /**
+   * Find sale records by dealership ID
+   * Useful for dealership performance tracking
+   *
+   * @param dealershipId - Dealership ID to search for
+   * @return Future containing list of sales for the dealership
+   */
+  @Query('SELECT * FROM SaleRecord WHERE dealershipId = :dealershipId ORDER BY id DESC')
+  Future<List<SaleRecord>> findSalesByDealership(int dealershipId);
+
+  /**
+   * Count total number of sale records
+   * Useful for statistics and reporting
+   *
+   * @return Future containing the total count of sales
+   */
+  @Query('SELECT COUNT(*) FROM SaleRecord')
+  Future<int?> countSaleRecords();
 }

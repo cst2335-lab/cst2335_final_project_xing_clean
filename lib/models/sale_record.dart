@@ -1,17 +1,22 @@
+// lib/models/sale_record.dart
+import 'package:floor/floor.dart';
+
 /**
- * SaleRecord class for managing sales data
- * Simple version without Floor annotations for initial testing
+ * SaleRecord entity class for Floor database storage
+ * Represents a sales transaction record in the database
  *
  * Project Requirements Addressed:
- * - Data model for sales list page (Task 4)
+ * - Requirement 3: Database storage using Floor SQLite
+ * - Data model for sales list page implementation
  * - Stores customer ID, car ID, dealership ID, and purchase date
- * - Provides display formatting for ListView
  */
+@entity
 class SaleRecord {
   /**
    * Primary key for the sale record
    * Unique identifier for each sale transaction
    */
+  @primaryKey
   final int id;
 
   /**
