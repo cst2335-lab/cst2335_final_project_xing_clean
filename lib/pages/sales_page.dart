@@ -1,492 +1,528 @@
+// lib/pages/sales_page.dart
 import 'package:flutter/material.dart';
-import 'package:shared_preferences/shared_preferences.dart';
 import 'package:encrypted_shared_preferences/encrypted_shared_preferences.dart';
+import '../models/sale_record.dart';
+import '../database/app_database.dart';
 
-/**
- * SaleRecord class for managing sales data
- * Simple version for the Sales Management module
- *
- * Project Requirements Addressed:
- * - Data model for sales list page (Task 4)
- * - Stores customer ID, car ID, dealership ID, and purchase date
- * - Provides display formatting for ListView
- */
-class SaleRecord {
-  /**
-   * Primary key for the sale record
-   * Unique identifier for each sale transaction
-   */
-  final int id;
-
-  /**
-   * ID of the customer who purchased the car
-   * Requirement: Integer representing customer ID (can be any int)
-   */
-  final int customerId;
-
-  /**
-   * ID of the car that was sold
-   * Requirement: Integer representing car ID from car inventory
-   */
-  final int carId;
-
-  /**
-   * ID of the dealership where the sale occurred
-   * Requirement: Integer representing dealership location ID
-   */
-  final int dealershipId;
-
-  /**
-   * Date when the purchase was made
-   * Requirement: Date of purchase as string format
-   */
-  final String purchaseDate;
-
-  /**
-   * Static counter for generating unique IDs
-   * Ensures each new sale record gets a unique identifier
-   */
-  static int ID = 1;
-
-  /**
-   * Constructor for SaleRecord
-   * Automatically updates the static ID counter to ensure unique IDs
-   */
-  SaleRecord(
-      this.id,
-      this.customerId,
-      this.carId,
-      this.dealershipId,
-      this.purchaseDate,
-      ) {
-    // Update static ID counter if current ID is higher
-    if (id >= ID) {
-      ID = id + 1;
-    }
-  }
-
-  /**
-   * Getter for display title in ListView
-   * Requirement 1: ListView displays items inserted by user
-   */
-  String get displayTitle => 'Sale Record #$id';
-
-  /**
-   * Getter for display subtitle in ListView
-   * Shows key information about the sale in compact format
-   */
-  String get displaySubtitle =>
-      'Customer: $customerId | Car: $carId | Date: $purchaseDate';
-
-  /**
-   * String representation of the SaleRecord for debugging
-   */
-  @override
-  String toString() {
-    return 'SaleRecord{id: $id, customerId: $customerId, carId: $carId, '
-        'dealershipId: $dealershipId, purchaseDate: $purchaseDate}';
-  }
-
-  /**
-   * Equality operator for comparing SaleRecord instances
-   * Two records are equal if they have the same ID
-   */
-  @override
-  bool operator ==(Object other) =>
-      identical(this, other) ||
-          other is SaleRecord &&
-              runtimeType == other.runtimeType &&
-              id == other.id;
-
-  /**
-   * Hash code implementation based on ID
-   */
-  @override
-  int get hashCode => id.hashCode;
-}
-
-/**
- * SalesPage widget - Complete sales management interface
- * Implements all requirements for the Sales List Page (Task 4)
- *
- * Project Requirements Addressed:
- * - Requirement 1: ListView that lists items inserted by user
- * - Requirement 2: TextField with button to insert items into ListView
- * - Requirement 3: Database storage (simulated with in-memory storage)
- * - Requirement 4: Responsive layout for phone/tablet
- * - Requirement 5: Snackbar and AlertDialog notifications
- * - Requirement 6: EncryptedSharedPreferences for data persistence
- * - Requirement 7: ActionBar with help instructions
- * - Requirement 10: Professional interface design
- */
+/// Sales Page Widget - Main sales management interface
+///
+/// Project Requirements Addressed:
+/// * ListView that lists items inserted by user
+/// * TextField + Button to insert items into ListView
+/// * Database storage using Floor SQLite for persistence
+/// * Selecting items shows details (responsive layout)
+/// * Snackbar and AlertDialog notifications
+/// * EncryptedSharedPreferences for TextField data
+/// * ActionBar with help instructions
+/// * Professional interface layout
+///
+/// Responsive Design:
+/// * Phone: Full-screen list, then full-screen details
+/// * Tablet/Desktop: List on left, details on right
 class SalesPage extends StatefulWidget {
   @override
   _SalesPageState createState() => _SalesPageState();
 }
 
 class _SalesPageState extends State<SalesPage> {
-  // Data storage for sales records
-  List<SaleRecord> salesRecords = [];
-  SaleRecord? selectedSale;
+  // Database and data management
+  AppDatabase? _database;
+  List<SaleRecord> _saleRecords = [];
+  SaleRecord? _selectedRecord;
 
-  // Form controllers for input fields (Requirement 2)
-  final TextEditingController customerIdController = TextEditingController();
-  final TextEditingController carIdController = TextEditingController();
-  final TextEditingController dealershipIdController = TextEditingController();
-  final TextEditingController dateController = TextEditingController();
+  // Form controllers for adding new records
+  final TextEditingController _customerIdController = TextEditingController();
+  final TextEditingController _carIdController = TextEditingController();
+  final TextEditingController _dealershipIdController = TextEditingController();
+  final TextEditingController _purchaseDateController = TextEditingController();
 
-  // Form validation
-  final GlobalKey<FormState> _formKey = GlobalKey<FormState>();
+  // Encrypted shared preferences for data persistence
+  late EncryptedSharedPreferences _encryptedPrefs;
 
-  // Loading state
-  bool isLoading = false;
+  // UI state management
+  bool _isLoading = true;
+  String _errorMessage = '';
 
+  /// Initialize state and load data when widget is created
+  /// Sets up database connection and loads existing records
   @override
   void initState() {
     super.initState();
-    _initializeData();
+    _initializeEncryptedPreferences();
+    _initializeDatabase();
+    _loadSavedFormData();
   }
 
+  /// Clean up resources when widget is disposed
+  /// Properly dispose of text controllers and close database
   @override
   void dispose() {
-    // Clean up controllers
-    customerIdController.dispose();
-    carIdController.dispose();
-    dealershipIdController.dispose();
-    dateController.dispose();
+    _customerIdController.dispose();
+    _carIdController.dispose();
+    _dealershipIdController.dispose();
+    _purchaseDateController.dispose();
+    _database?.closeDatabase();
     super.dispose();
   }
 
-  /**
-   * Initialize data and load previous input values
-   * Requirement 6: Load data from SharedPreferences (simplified)
-   */
-  Future<void> _initializeData() async {
-    setState(() {
-      isLoading = true;
-    });
+  /// Initialize encrypted shared preferences for secure data storage
+  /// Requirement 6: EncryptedSharedPreferences to save TextField data
+  void _initializeEncryptedPreferences() {
+    _encryptedPrefs = EncryptedSharedPreferences();
+  }
 
+  /// Initialize Floor database connection
+  /// Requirement 3: Database storage for ListView items
+  Future<void> _initializeDatabase() async {
     try {
-      // Load sample data for demonstration
-      _loadSampleData();
+      _database = await AppDatabase.createDatabase();
+      await _loadSaleRecordsFromDatabase();
 
-      // Load previous form data from SharedPreferences
-      await _loadPreviousFormData();
-
-    } catch (e) {
-      _showSnackbar('Error initializing data: $e');
-    } finally {
       setState(() {
-        isLoading = false;
+        _isLoading = false;
+      });
+
+      // Show success message
+      _showSnackbar('Database initialized successfully');
+    } catch (e) {
+      setState(() {
+        _isLoading = false;
+        _errorMessage = 'Failed to initialize database: $e';
       });
     }
   }
 
-  /**
-   * Load previous form data from SharedPreferences
-   * Requirement 6: Save TextField data for next app launch
-   */
-  Future<void> _loadPreviousFormData() async {
+  /// Load all sale records from database
+  /// Requirement 1: ListView displays items inserted by user
+  Future<void> _loadSaleRecordsFromDatabase() async {
+    if (_database == null) return;
+
     try {
-      final prefs = await SharedPreferences.getInstance();
-
-      final customerId = prefs.getString('lastCustomerId');
-      final carId = prefs.getString('lastCarId');
-      final dealershipId = prefs.getString('lastDealershipId');
-      final date = prefs.getString('lastDate');
-
-      if (customerId != null) customerIdController.text = customerId;
-      if (carId != null) carIdController.text = carId;
-      if (dealershipId != null) dealershipIdController.text = dealershipId;
-      if (date != null) dateController.text = date;
+      final records = await _database!.saleRecordDao.findAllSaleRecords();
+      setState(() {
+        _saleRecords = records;
+        _errorMessage = '';
+      });
     } catch (e) {
-      print('Error loading previous form data: $e');
+      setState(() {
+        _errorMessage = 'Failed to load records: $e';
+      });
+      _showSnackbar('Error loading sales records');
     }
   }
 
-  /**
-   * Save current form data to SharedPreferences
-   * Requirement 6: Save TextField data for next app launch
-   */
-  Future<void> _saveFormData() async {
+  /// Load previously saved form data from encrypted preferences
+  /// Requirement 6: Use EncryptedSharedPreferences to save TextField content
+  Future<void> _loadSavedFormData() async {
     try {
-      final prefs = await SharedPreferences.getInstance();
-      await prefs.setString('lastCustomerId', customerIdController.text);
-      await prefs.setString('lastCarId', carIdController.text);
-      await prefs.setString('lastDealershipId', dealershipIdController.text);
-      await prefs.setString('lastDate', dateController.text);
+      final savedCustomerId = await _encryptedPrefs.getString('last_customer_id');
+      final savedCarId = await _encryptedPrefs.getString('last_car_id');
+      final savedDealershipId = await _encryptedPrefs.getString('last_dealership_id');
+      final savedPurchaseDate = await _encryptedPrefs.getString('last_purchase_date');
+
+      setState(() {
+        _customerIdController.text = savedCustomerId ?? '';
+        _carIdController.text = savedCarId ?? '';
+        _dealershipIdController.text = savedDealershipId ?? '';
+        _purchaseDateController.text = savedPurchaseDate ?? _getCurrentDate();
+      });
+    } catch (e) {
+      // If no saved data or error, set default date
+      _purchaseDateController.text = _getCurrentDate();
+    }
+  }
+
+  /// Save current form data to encrypted preferences
+  /// Requirement 6: Save TextField data for next application launch
+  Future<void> _saveFormDataToPreferences() async {
+    try {
+      await _encryptedPrefs.setString('last_customer_id', _customerIdController.text);
+      await _encryptedPrefs.setString('last_car_id', _carIdController.text);
+      await _encryptedPrefs.setString('last_dealership_id', _dealershipIdController.text);
+      await _encryptedPrefs.setString('last_purchase_date', _purchaseDateController.text);
     } catch (e) {
       print('Error saving form data: $e');
     }
   }
 
-  /**
-   * Load sample data for demonstration
-   * Requirement 3: Simulate database storage
-   */
-  void _loadSampleData() {
-    salesRecords = [
-      SaleRecord(1, 101, 201, 301, '2024-01-15'),
-      SaleRecord(2, 102, 202, 302, '2024-01-16'),
-      SaleRecord(3, 103, 203, 303, '2024-01-17'),
-    ];
+  /// Get current date in YYYY-MM-DD format
+  /// Helper method for default date values
+  String _getCurrentDate() {
+    final now = DateTime.now();
+    return '${now.year}-${now.month.toString().padLeft(2, '0')}-${now.day.toString().padLeft(2, '0')}';
   }
 
-  @override
-  Widget build(BuildContext context) {
-    return Scaffold(
-      // Requirement 7: ActionBar with help functionality
-      appBar: AppBar(
-        title: Text('Sales Management'),
-        backgroundColor: Colors.red,
-        actions: [
-          IconButton(
-            icon: Icon(Icons.help),
-            tooltip: 'Show instructions',
-            onPressed: _showInstructions,
-          ),
-        ],
-      ),
-
-      body: isLoading
-          ? Center(child: CircularProgressIndicator())
-          : _buildResponsiveLayout(),
-    );
-  }
-
-  /**
-   * Build responsive layout based on screen size
-   * Requirement 4: Different layouts for phone and tablet
-   */
-  Widget _buildResponsiveLayout() {
-    var size = MediaQuery.of(context).size;
-    var width = size.width;
-    var height = size.height;
-
-    // Tablet/Desktop layout (Master-Detail pattern)
-    if ((width > height) && (width > 720)) {
-      return Row(
-        children: [
-          // Left side: Sales list and form
-          Expanded(
-            flex: 2,
-            child: _buildSalesListSection(),
-          ),
-
-          // Right side: Selected sale details
-          Expanded(
-            flex: 3,
-            child: _buildDetailsSection(),
-          ),
-        ],
-      );
+  /// Add new sale record to database
+  /// Requirement 2: TextField + Button to insert items into ListView
+  Future<void> _addSaleRecord() async {
+    // Validate form inputs
+    if (!_validateFormInputs()) {
+      return;
     }
-    // Phone layout (Single page switching)
-    else {
-      if (selectedSale == null) {
-        return _buildSalesListSection();
-      } else {
-        return _buildDetailsSection();
+
+    try {
+      // Create new sale record
+      final newRecord = SaleRecord.create(
+        customerId: int.parse(_customerIdController.text),
+        carId: int.parse(_carIdController.text),
+        dealershipId: int.parse(_dealershipIdController.text),
+        purchaseDate: _purchaseDateController.text,
+      );
+
+      // Save to database
+      await _database!.saleRecordDao.insertSaleRecord(newRecord);
+
+      // Save form data to preferences
+      await _saveFormDataToPreferences();
+
+      // Reload data from database
+      await _loadSaleRecordsFromDatabase();
+
+      // Clear form (except date)
+      _clearForm();
+
+      // Show success message
+      _showSnackbar('Sale record added successfully');
+
+    } catch (e) {
+      _showSnackbar('Error adding sale record: $e');
+    }
+  }
+
+  /// Validate form inputs before saving
+  /// Ensures all required fields have valid values
+  bool _validateFormInputs() {
+    // Check if any field is empty
+    if (_customerIdController.text.isEmpty ||
+        _carIdController.text.isEmpty ||
+        _dealershipIdController.text.isEmpty ||
+        _purchaseDateController.text.isEmpty) {
+      _showAlertDialog(
+        'Validation Error',
+        'All fields are required. Please fill in all fields before adding a sale record.',
+      );
+      return false;
+    }
+
+    // Validate customer ID
+    final customerId = int.tryParse(_customerIdController.text);
+    if (customerId == null || customerId <= 0) {
+      _showAlertDialog(
+        'Invalid Customer ID',
+        'Customer ID must be a positive integer.',
+      );
+      return false;
+    }
+
+    // Validate car ID
+    final carId = int.tryParse(_carIdController.text);
+    if (carId == null || carId <= 0) {
+      _showAlertDialog(
+        'Invalid Car ID',
+        'Car ID must be a positive integer.',
+      );
+      return false;
+    }
+
+    // Validate dealership ID
+    final dealershipId = int.tryParse(_dealershipIdController.text);
+    if (dealershipId == null || dealershipId <= 0) {
+      _showAlertDialog(
+        'Invalid Dealership ID',
+        'Dealership ID must be a positive integer.',
+      );
+      return false;
+    }
+
+    // Validate date format (basic check)
+    if (!RegExp(r'^\d{4}-\d{2}-\d{2}$').hasMatch(_purchaseDateController.text)) {
+      _showAlertDialog(
+        'Invalid Date Format',
+        'Purchase date must be in YYYY-MM-DD format.',
+      );
+      return false;
+    }
+
+    return true;
+  }
+
+  /// Clear form fields after successful submission
+  /// Keeps date field for convenience
+  void _clearForm() {
+    _customerIdController.clear();
+    _carIdController.clear();
+    _dealershipIdController.clear();
+    // Keep the date for convenience
+  }
+
+  /// Delete selected sale record from database
+  /// Shows confirmation dialog before deletion
+  Future<void> _deleteSaleRecord(SaleRecord record) async {
+    // Show confirmation dialog
+    final shouldDelete = await _showConfirmationDialog(
+      'Delete Sale Record',
+      'Are you sure you want to delete this sale record? This action cannot be undone.',
+    );
+
+    if (shouldDelete) {
+      try {
+        await _database!.saleRecordDao.deleteSaleRecord(record);
+        await _loadSaleRecordsFromDatabase();
+
+        // Clear selection if deleted record was selected
+        if (_selectedRecord?.id == record.id) {
+          setState(() {
+            _selectedRecord = null;
+          });
+        }
+
+        _showSnackbar('Sale record deleted successfully');
+      } catch (e) {
+        _showSnackbar('Error deleting sale record: $e');
       }
     }
   }
 
-  /**
-   * Build the sales list section with form and ListView
-   * Requirement 1 & 2: ListView with TextField and button for adding items
-   */
-  Widget _buildSalesListSection() {
-    return Column(
-      children: [
-        // Form section for adding new sales
-        _buildAddSaleForm(),
-
-        Divider(),
-
-        // List section showing all sales
-        Expanded(
-          child: _buildSalesList(),
-        ),
-      ],
-    );
+  /// Select a sale record to show details
+  /// Requirement 4: Selecting items shows details
+  void _selectSaleRecord(SaleRecord record) {
+    setState(() {
+      _selectedRecord = record;
+    });
   }
 
-  /**
-   * Build form for adding new sales records
-   * Requirement 2: TextField along with button to insert items
-   */
-  Widget _buildAddSaleForm() {
-    return Card(
-      margin: EdgeInsets.all(16),
-      child: Padding(
-        padding: EdgeInsets.all(16),
-        child: Form(
-          key: _formKey,
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Text(
-                'Add New Sale Record',
-                style: TextStyle(
-                  fontSize: 18,
-                  fontWeight: FontWeight.bold,
-                ),
-              ),
+  /// Clear current selection
+  /// Used for navigation back to list on phone
+  void _clearSelection() {
+    setState(() {
+      _selectedRecord = null;
+    });
+  }
 
-              SizedBox(height: 16),
-
-              // Customer ID field
-              TextFormField(
-                controller: customerIdController,
-                decoration: InputDecoration(
-                  labelText: 'Customer ID',
-                  hintText: 'Enter customer ID (any integer)',
-                  border: OutlineInputBorder(),
-                  prefixIcon: Icon(Icons.person),
-                ),
-                keyboardType: TextInputType.number,
-                validator: (value) {
-                  if (value == null || value.isEmpty) {
-                    return 'Please enter a customer ID';
-                  }
-                  if (int.tryParse(value) == null) {
-                    return 'Please enter a valid number';
-                  }
-                  return null;
-                },
-              ),
-
-              SizedBox(height: 12),
-
-              // Car ID field
-              TextFormField(
-                controller: carIdController,
-                decoration: InputDecoration(
-                  labelText: 'Car ID',
-                  hintText: 'Enter car ID',
-                  border: OutlineInputBorder(),
-                  prefixIcon: Icon(Icons.directions_car),
-                ),
-                keyboardType: TextInputType.number,
-                validator: (value) {
-                  if (value == null || value.isEmpty) {
-                    return 'Please enter a car ID';
-                  }
-                  if (int.tryParse(value) == null) {
-                    return 'Please enter a valid number';
-                  }
-                  return null;
-                },
-              ),
-
-              SizedBox(height: 12),
-
-              // Dealership ID field
-              TextFormField(
-                controller: dealershipIdController,
-                decoration: InputDecoration(
-                  labelText: 'Dealership ID',
-                  hintText: 'Enter dealership ID',
-                  border: OutlineInputBorder(),
-                  prefixIcon: Icon(Icons.business),
-                ),
-                keyboardType: TextInputType.number,
-                validator: (value) {
-                  if (value == null || value.isEmpty) {
-                    return 'Please enter a dealership ID';
-                  }
-                  if (int.tryParse(value) == null) {
-                    return 'Please enter a valid number';
-                  }
-                  return null;
-                },
-              ),
-
-              SizedBox(height: 12),
-
-              // Purchase date field
-              TextFormField(
-                controller: dateController,
-                decoration: InputDecoration(
-                  labelText: 'Purchase Date',
-                  hintText: 'YYYY-MM-DD',
-                  border: OutlineInputBorder(),
-                  prefixIcon: Icon(Icons.calendar_today),
-                ),
-                validator: (value) {
-                  if (value == null || value.isEmpty) {
-                    return 'Please enter a purchase date';
-                  }
-                  return null;
-                },
-                onTap: () => _selectDate(),
-              ),
-
-              SizedBox(height: 16),
-
-              // Action buttons
-              Row(
-                children: [
-                  Expanded(
-                    child: ElevatedButton.icon(
-                      onPressed: _addSaleRecord,
-                      icon: Icon(Icons.add),
-                      label: Text('Add Sale'),
-                      style: ElevatedButton.styleFrom(
-                        backgroundColor: Colors.green,
-                        foregroundColor: Colors.white,
-                      ),
-                    ),
-                  ),
-
-                  SizedBox(width: 12),
-
-                  Expanded(
-                    child: OutlinedButton.icon(
-                      onPressed: _copyFromPrevious,
-                      icon: Icon(Icons.copy),
-                      label: Text('Copy Previous'),
-                    ),
-                  ),
-                ],
-              ),
-            ],
-          ),
+  /// Show snackbar notification
+  /// Requirement 5: Each activity must have at least 1 Snackbar
+  void _showSnackbar(String message) {
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text(message),
+        duration: Duration(seconds: 3),
+        action: SnackBarAction(
+          label: 'OK',
+          onPressed: () {
+            ScaffoldMessenger.of(context).hideCurrentSnackBar();
+          },
         ),
       ),
     );
   }
 
-  /**
-   * Build ListView showing all sales records
-   * Requirement 1: ListView that lists items inserted by user
-   */
-  Widget _buildSalesList() {
-    if (salesRecords.isEmpty) {
+  /// Show alert dialog notification
+  /// Requirement 5: Each activity must have at least 1 AlertDialog
+  void _showAlertDialog(String title, String message) {
+    showDialog(
+      context: context,
+      builder: (BuildContext context) {
+        return AlertDialog(
+          title: Text(title),
+          content: Text(message),
+          actions: [
+            TextButton(
+              onPressed: () {
+                Navigator.of(context).pop();
+              },
+              child: Text('OK'),
+            ),
+          ],
+        );
+      },
+    );
+  }
+
+  /// Show confirmation dialog with Yes/No options
+  /// Used for delete confirmations
+  Future<bool> _showConfirmationDialog(String title, String message) async {
+    final result = await showDialog<bool>(
+      context: context,
+      builder: (BuildContext context) {
+        return AlertDialog(
+          title: Text(title),
+          content: Text(message),
+          actions: [
+            TextButton(
+              onPressed: () {
+                Navigator.of(context).pop(false);
+              },
+              child: Text('Cancel'),
+            ),
+            TextButton(
+              onPressed: () {
+                Navigator.of(context).pop(true);
+              },
+              child: Text('Delete'),
+            ),
+          ],
+        );
+      },
+    );
+    return result ?? false;
+  }
+
+  /// Show help instructions dialog
+  /// Requirement 7: ActionBar with ActionItems showing usage instructions
+  void _showHelpDialog() {
+    showDialog(
+      context: context,
+      builder: (BuildContext context) {
+        return AlertDialog(
+          title: Text('How to Use Sales Page'),
+          content: SingleChildScrollView(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Text(
+                  'Adding Sales Records:',
+                  style: TextStyle(fontWeight: FontWeight.bold),
+                ),
+                Text('1. Fill in Customer ID, Car ID, and Dealership ID'),
+                Text('2. Enter purchase date in YYYY-MM-DD format'),
+                Text('3. Tap "Add Sale Record" button'),
+                SizedBox(height: 16),
+                Text(
+                  'Viewing Details:',
+                  style: TextStyle(fontWeight: FontWeight.bold),
+                ),
+                Text('• Tap any sale record to view details'),
+                Text('• On tablets: details appear on the right'),
+                Text('• On phones: details appear full screen'),
+                SizedBox(height: 16),
+                Text(
+                  'Managing Records:',
+                  style: TextStyle(fontWeight: FontWeight.bold),
+                ),
+                Text('• Tap delete button (🗑️) to remove records'),
+                Text('• All data is automatically saved to database'),
+                Text('• Form data is remembered between app launches'),
+              ],
+            ),
+          ),
+          actions: [
+            TextButton(
+              onPressed: () {
+                Navigator.of(context).pop();
+              },
+              child: Text('Got it!'),
+            ),
+          ],
+        );
+      },
+    );
+  }
+
+  /// Build form for adding new sale records
+  /// Requirement 2: TextField + Button for user input
+  Widget _buildAddRecordForm() {
+    return Card(
+      margin: EdgeInsets.all(8.0),
+      child: Padding(
+        padding: EdgeInsets.all(16.0),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(
+              'Add New Sale Record',
+              style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+            ),
+            SizedBox(height: 16),
+            TextField(
+              controller: _customerIdController,
+              decoration: InputDecoration(
+                labelText: 'Customer ID',
+                hintText: 'Enter customer ID (integer)',
+                border: OutlineInputBorder(),
+                prefixIcon: Icon(Icons.person),
+              ),
+              keyboardType: TextInputType.number,
+            ),
+            SizedBox(height: 12),
+            TextField(
+              controller: _carIdController,
+              decoration: InputDecoration(
+                labelText: 'Car ID',
+                hintText: 'Enter car ID (integer)',
+                border: OutlineInputBorder(),
+                prefixIcon: Icon(Icons.directions_car),
+              ),
+              keyboardType: TextInputType.number,
+            ),
+            SizedBox(height: 12),
+            TextField(
+              controller: _dealershipIdController,
+              decoration: InputDecoration(
+                labelText: 'Dealership ID',
+                hintText: 'Enter dealership ID (integer)',
+                border: OutlineInputBorder(),
+                prefixIcon: Icon(Icons.store),
+              ),
+              keyboardType: TextInputType.number,
+            ),
+            SizedBox(height: 12),
+            TextField(
+              controller: _purchaseDateController,
+              decoration: InputDecoration(
+                labelText: 'Purchase Date',
+                hintText: 'YYYY-MM-DD format',
+                border: OutlineInputBorder(),
+                prefixIcon: Icon(Icons.calendar_today),
+              ),
+              onTap: () async {
+                final date = await showDatePicker(
+                  context: context,
+                  initialDate: DateTime.now(),
+                  firstDate: DateTime(2000),
+                  lastDate: DateTime.now(),
+                );
+                if (date != null) {
+                  _purchaseDateController.text =
+                  '${date.year}-${date.month.toString().padLeft(2, '0')}-${date.day.toString().padLeft(2, '0')}';
+                }
+              },
+            ),
+            SizedBox(height: 16),
+            SizedBox(
+              width: double.infinity,
+              child: ElevatedButton(
+                onPressed: _addSaleRecord,
+                child: Text('Add Sale Record'),
+                style: ElevatedButton.styleFrom(
+                  padding: EdgeInsets.symmetric(vertical: 12),
+                ),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  /// Build list view of sale records
+  /// Requirement 1: ListView that lists items inserted by user
+  Widget _buildSaleRecordsList() {
+    if (_saleRecords.isEmpty) {
       return Center(
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            Icon(
-              Icons.shopping_cart_outlined,
-              size: 64,
-              color: Colors.grey,
-            ),
+            Icon(Icons.receipt_long, size: 64, color: Colors.grey),
             SizedBox(height: 16),
             Text(
-              'No sales records yet',
-              style: TextStyle(
-                fontSize: 18,
-                color: Colors.grey,
-              ),
+              'No sale records found',
+              style: TextStyle(fontSize: 18, color: Colors.grey),
             ),
             SizedBox(height: 8),
             Text(
-              'Add your first sale using the form above',
-              style: TextStyle(
-                fontSize: 14,
-                color: Colors.grey[600],
-              ),
+              'Add your first sale record using the form above',
+              style: TextStyle(color: Colors.grey),
             ),
           ],
         ),
@@ -494,66 +530,47 @@ class _SalesPageState extends State<SalesPage> {
     }
 
     return ListView.builder(
-      itemCount: salesRecords.length,
+      itemCount: _saleRecords.length,
       itemBuilder: (context, index) {
-        final sale = salesRecords[index];
-        final isSelected = selectedSale?.id == sale.id;
+        final record = _saleRecords[index];
+        final isSelected = _selectedRecord?.id == record.id;
 
         return Card(
-          margin: EdgeInsets.symmetric(horizontal: 16, vertical: 4),
-          color: isSelected ? Colors.blue[50] : null,
+          margin: EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+          color: isSelected ? Colors.blue.withOpacity(0.1) : null,
           child: ListTile(
             leading: CircleAvatar(
-              backgroundColor: Colors.red,
-              child: Text(
-                sale.id.toString(),
-                style: TextStyle(color: Colors.white),
-              ),
+              child: Text('${record.id ?? 'N'}'),
+              backgroundColor: isSelected ? Colors.blue : Colors.grey,
+              foregroundColor: Colors.white,
             ),
-            title: Text(sale.displayTitle),
-            subtitle: Text(sale.displaySubtitle),
-            trailing: Row(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                IconButton(
-                  icon: Icon(Icons.edit, color: Colors.blue),
-                  onPressed: () => _editSaleRecord(sale),
-                ),
-                IconButton(
-                  icon: Icon(Icons.delete, color: Colors.red),
-                  onPressed: () => _deleteSaleRecord(sale),
-                ),
-              ],
+            title: Text(record.displayTitle),
+            subtitle: Text(record.displaySubtitle),
+            trailing: IconButton(
+              icon: Icon(Icons.delete, color: Colors.red),
+              onPressed: () => _deleteSaleRecord(record),
+              tooltip: 'Delete this sale record',
             ),
-            onTap: () => _selectSaleRecord(sale),
+            onTap: () => _selectSaleRecord(record),
           ),
         );
       },
     );
   }
 
-  /**
-   * Build details section for selected sale
-   * Requirement 4: Show details when item is selected
-   */
-  Widget _buildDetailsSection() {
-    if (selectedSale == null) {
+  /// Build detail view for selected sale record
+  /// Requirement 4: Show details when item is selected
+  Widget _buildSaleRecordDetails() {
+    if (_selectedRecord == null) {
       return Center(
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            Icon(
-              Icons.info_outline,
-              size: 64,
-              color: Colors.grey,
-            ),
+            Icon(Icons.info_outline, size: 64, color: Colors.grey),
             SizedBox(height: 16),
             Text(
               'Select a sale record to view details',
-              style: TextStyle(
-                fontSize: 18,
-                color: Colors.grey,
-              ),
+              style: TextStyle(fontSize: 18, color: Colors.grey),
             ),
           ],
         ),
@@ -561,69 +578,40 @@ class _SalesPageState extends State<SalesPage> {
     }
 
     return Card(
-      margin: EdgeInsets.all(16),
+      margin: EdgeInsets.all(8.0),
       child: Padding(
-        padding: EdgeInsets.all(16),
+        padding: EdgeInsets.all(16.0),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            // Header with back button for phone layout
             Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
+                Text(
+                  'Sale Record Details',
+                  style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
+                ),
+                // Show back button on phone layout
                 if (MediaQuery.of(context).size.width <= 720)
                   IconButton(
                     icon: Icon(Icons.arrow_back),
-                    onPressed: () {
-                      setState(() {
-                        selectedSale = null;
-                      });
-                    },
+                    onPressed: _clearSelection,
+                    tooltip: 'Back to list',
                   ),
-                Expanded(
-                  child: Text(
-                    'Sale Record Details',
-                    style: TextStyle(
-                      fontSize: 20,
-                      fontWeight: FontWeight.bold,
-                    ),
-                  ),
-                ),
               ],
             ),
-
-            Divider(),
-
-            // Sale details
-            _buildDetailRow('Sale ID', selectedSale!.id.toString()),
-            _buildDetailRow('Customer ID', selectedSale!.customerId.toString()),
-            _buildDetailRow('Car ID', selectedSale!.carId.toString()),
-            _buildDetailRow('Dealership ID', selectedSale!.dealershipId.toString()),
-            _buildDetailRow('Purchase Date', selectedSale!.purchaseDate),
-
+            SizedBox(height: 16),
+            Text(
+              _selectedRecord!.detailInfo,
+              style: TextStyle(fontSize: 16),
+            ),
             SizedBox(height: 24),
-
-            // Action buttons
             Row(
               children: [
                 Expanded(
-                  child: ElevatedButton.icon(
-                    onPressed: () => _editSaleRecord(selectedSale!),
-                    icon: Icon(Icons.edit),
-                    label: Text('Update'),
-                    style: ElevatedButton.styleFrom(
-                      backgroundColor: Colors.blue,
-                      foregroundColor: Colors.white,
-                    ),
-                  ),
-                ),
-
-                SizedBox(width: 12),
-
-                Expanded(
-                  child: ElevatedButton.icon(
-                    onPressed: () => _deleteSaleRecord(selectedSale!),
-                    icon: Icon(Icons.delete),
-                    label: Text('Delete'),
+                  child: ElevatedButton(
+                    onPressed: () => _deleteSaleRecord(_selectedRecord!),
+                    child: Text('Delete Record'),
                     style: ElevatedButton.styleFrom(
                       backgroundColor: Colors.red,
                       foregroundColor: Colors.white,
@@ -638,249 +626,112 @@ class _SalesPageState extends State<SalesPage> {
     );
   }
 
-  /**
-   * Build a detail row for the details section
-   */
-  Widget _buildDetailRow(String label, String value) {
-    return Padding(
-      padding: EdgeInsets.symmetric(vertical: 8),
-      child: Row(
-        crossAxisAlignment: CrossAxisAlignment.start,
+  /// Build responsive layout based on screen size
+  /// Requirement 4: Phone uses whole screen, Tablet shows details beside ListView
+  Widget _buildResponsiveLayout() {
+    final screenWidth = MediaQuery.of(context).size.width;
+    final screenHeight = MediaQuery.of(context).size.height;
+    final isTablet = screenWidth > 720 && screenWidth > screenHeight;
+
+    if (isTablet) {
+      // Tablet layout: List on left, details on right
+      return Row(
         children: [
-          SizedBox(
-            width: 120,
-            child: Text(
-              '$label:',
-              style: TextStyle(
-                fontWeight: FontWeight.bold,
-                color: Colors.grey[700],
-              ),
-            ),
-          ),
+          // Left side: Form and List
           Expanded(
-            child: Text(
-              value,
-              style: TextStyle(fontSize: 16),
+            flex: 3,
+            child: Column(
+              children: [
+                _buildAddRecordForm(),
+                Expanded(child: _buildSaleRecordsList()),
+              ],
             ),
           ),
+          // Right side: Details
+          Expanded(
+            flex: 2,
+            child: _buildSaleRecordDetails(),
+          ),
         ],
-      ),
-    );
-  }
-
-  /**
-   * Select date using date picker
-   */
-  Future<void> _selectDate() async {
-    final DateTime? picked = await showDatePicker(
-      context: context,
-      initialDate: DateTime.now(),
-      firstDate: DateTime(2000),
-      lastDate: DateTime(2030),
-    );
-
-    if (picked != null) {
-      setState(() {
-        dateController.text = picked.toString().split(' ')[0];
-      });
-    }
-  }
-
-  /**
-   * Add new sale record
-   * Requirement 2: Button that lets user insert items into ListView
-   */
-  void _addSaleRecord() {
-    if (_formKey.currentState!.validate()) {
-      final newSale = SaleRecord(
-        SaleRecord.ID++,
-        int.parse(customerIdController.text),
-        int.parse(carIdController.text),
-        int.parse(dealershipIdController.text),
-        dateController.text,
       );
-
-      setState(() {
-        salesRecords.add(newSale);
-      });
-
-      // Save form data for next time (Requirement 6)
-      _saveFormData();
-
-      // Clear form
-      _clearForm();
-
-      // Show success message (Requirement 5)
-      _showSnackbar('Sale record added successfully');
+    } else {
+      // Phone layout: Full screen
+      if (_selectedRecord != null) {
+        // Show details full screen
+        return _buildSaleRecordDetails();
+      } else {
+        // Show form and list
+        return Column(
+          children: [
+            _buildAddRecordForm(),
+            Expanded(child: _buildSaleRecordsList()),
+          ],
+        );
+      }
     }
   }
 
-  /**
-   * Copy data from previous sale record
-   * Requirement 6: Option to copy fields from previous entry
-   */
-  void _copyFromPrevious() {
-    _showSnackbar('Previous sale data has been loaded');
-  }
-
-  /**
-   * Select a sale record for viewing details
-   * Requirement 4: Selecting items shows details
-   */
-  void _selectSaleRecord(SaleRecord sale) {
-    setState(() {
-      selectedSale = sale;
-    });
-  }
-
-  /**
-   * Edit sale record
-   */
-  void _editSaleRecord(SaleRecord sale) {
-    // Populate form with selected sale data
-    customerIdController.text = sale.customerId.toString();
-    carIdController.text = sale.carId.toString();
-    dealershipIdController.text = sale.dealershipId.toString();
-    dateController.text = sale.purchaseDate;
-
-    // Remove the old record (will be re-added when form is submitted)
-    setState(() {
-      salesRecords.remove(sale);
-      selectedSale = null;
-    });
-
-    _showSnackbar('Sale record loaded for editing');
-  }
-
-  /**
-   * Delete sale record with confirmation
-   * Requirement 5: AlertDialog for confirmation
-   */
-  void _deleteSaleRecord(SaleRecord sale) {
-    showDialog(
-      context: context,
-      builder: (BuildContext context) => AlertDialog(
-        title: Text('Confirm Deletion'),
-        content: Text(
-          'Are you sure you want to delete this sale record?\n\n'
-              '${sale.displayTitle}\n'
-              'Customer ID: ${sale.customerId}',
-        ),
+  /// Build main widget
+  /// Requirement 10: Professional interface layout
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      appBar: AppBar(
+        title: Text('Sales Management'),
+        backgroundColor: Colors.blue,
+        foregroundColor: Colors.white,
         actions: [
-          TextButton(
-            onPressed: () => Navigator.of(context).pop(),
-            child: Text('Cancel'),
+          // Requirement 7: ActionBar with ActionItems showing help
+          IconButton(
+            icon: Icon(Icons.help_outline),
+            onPressed: _showHelpDialog,
+            tooltip: 'Show usage instructions',
           ),
-          ElevatedButton(
-            onPressed: () {
-              setState(() {
-                salesRecords.remove(sale);
-                if (selectedSale?.id == sale.id) {
-                  selectedSale = null;
-                }
-              });
-
-              Navigator.of(context).pop();
-              _showSnackbar('Sale record deleted');
-            },
-            style: ElevatedButton.styleFrom(
-              backgroundColor: Colors.red,
-              foregroundColor: Colors.white,
-            ),
-            child: Text('Delete'),
+          IconButton(
+            icon: Icon(Icons.refresh),
+            onPressed: _loadSaleRecordsFromDatabase,
+            tooltip: 'Refresh data',
           ),
         ],
       ),
-    );
-  }
-
-  /**
-   * Clear form fields
-   */
-  void _clearForm() {
-    customerIdController.clear();
-    carIdController.clear();
-    dealershipIdController.clear();
-    dateController.clear();
-  }
-
-  /**
-   * Show instructions dialog
-   * Requirement 5: AlertDialog for instructions
-   * Requirement 7: ActionBar help functionality
-   */
-  void _showInstructions() {
-    showDialog(
-      context: context,
-      builder: (BuildContext context) => AlertDialog(
-        title: Row(
+      body: _isLoading
+          ? Center(
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            Icon(Icons.help, color: Colors.red),
-            SizedBox(width: 8),
-            Text('Sales Management Instructions'),
+            CircularProgressIndicator(),
+            SizedBox(height: 16),
+            Text('Loading sales data...'),
           ],
         ),
-        content: SingleChildScrollView(
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Text(
-                'How to use Sales Management:',
-                style: TextStyle(fontWeight: FontWeight.bold),
-              ),
-              SizedBox(height: 12),
-              Text('1. Fill in all required fields in the form'),
-              Text('2. Click "Add Sale" to create a new record'),
-              Text('3. Click on any sale in the list to view details'),
-              Text('4. Use Edit/Delete buttons to modify records'),
-              Text('5. Use "Copy Previous" to reuse last entered data'),
-              Text('6. All data is automatically saved'),
-              SizedBox(height: 12),
-              Container(
-                padding: EdgeInsets.all(12),
-                decoration: BoxDecoration(
-                  color: Colors.red[50],
-                  borderRadius: BorderRadius.circular(8),
-                ),
-                child: Text(
-                  'Note: All fields must be filled before adding a sale record.',
-                  style: TextStyle(
-                    fontSize: 14,
-                    color: Colors.red[800],
-                    fontStyle: FontStyle.italic,
-                  ),
-                ),
-              ),
-            ],
-          ),
+      )
+          : _errorMessage.isNotEmpty
+          ? Center(
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Icon(Icons.error_outline, size: 64, color: Colors.red),
+            SizedBox(height: 16),
+            Text(
+              'Error: $_errorMessage',
+              style: TextStyle(color: Colors.red),
+              textAlign: TextAlign.center,
+            ),
+            SizedBox(height: 16),
+            ElevatedButton(
+              onPressed: () {
+                setState(() {
+                  _errorMessage = '';
+                  _isLoading = true;
+                });
+                _initializeDatabase();
+              },
+              child: Text('Retry'),
+            ),
+          ],
         ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.of(context).pop(),
-            child: Text('Got It'),
-          ),
-        ],
-      ),
-    );
-  }
-
-  /**
-   * Show snackbar message
-   * Requirement 5: Snackbar for notifications
-   */
-  void _showSnackbar(String message) {
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        content: Text(message),
-        behavior: SnackBarBehavior.floating,
-        action: SnackBarAction(
-          label: 'OK',
-          onPressed: () {
-            ScaffoldMessenger.of(context).hideCurrentSnackBar();
-          },
-        ),
-      ),
+      )
+          : _buildResponsiveLayout(),
     );
   }
 }

@@ -96,7 +96,7 @@ class _$AppDatabase extends AppDatabase {
       },
       onCreate: (database, version) async {
         await database.execute(
-            'CREATE TABLE IF NOT EXISTS `SaleRecord` (`id` INTEGER NOT NULL, `customerId` INTEGER NOT NULL, `carId` INTEGER NOT NULL, `dealershipId` INTEGER NOT NULL, `purchaseDate` TEXT NOT NULL, PRIMARY KEY (`id`))');
+            'CREATE TABLE IF NOT EXISTS `SaleRecord` (`id` INTEGER PRIMARY KEY AUTOINCREMENT, `customerId` INTEGER NOT NULL, `carId` INTEGER NOT NULL, `dealershipId` INTEGER NOT NULL, `purchaseDate` TEXT NOT NULL)');
 
         await callback?.onCreate?.call(database, version);
       },
@@ -164,11 +164,11 @@ class _$SaleRecordDao extends SaleRecordDao {
   Future<List<SaleRecord>> findAllSaleRecords() async {
     return _queryAdapter.queryList('SELECT * FROM SaleRecord ORDER BY id DESC',
         mapper: (Map<String, Object?> row) => SaleRecord(
-            row['id'] as int,
-            row['customerId'] as int,
-            row['carId'] as int,
-            row['dealershipId'] as int,
-            row['purchaseDate'] as String));
+            id: row['id'] as int?,
+            customerId: row['customerId'] as int,
+            carId: row['carId'] as int,
+            dealershipId: row['dealershipId'] as int,
+            purchaseDate: row['purchaseDate'] as String));
   }
 
   @override
@@ -182,11 +182,11 @@ class _$SaleRecordDao extends SaleRecordDao {
     return _queryAdapter.queryList(
         'SELECT * FROM SaleRecord WHERE customerId = ?1 ORDER BY id DESC',
         mapper: (Map<String, Object?> row) => SaleRecord(
-            row['id'] as int,
-            row['customerId'] as int,
-            row['carId'] as int,
-            row['dealershipId'] as int,
-            row['purchaseDate'] as String),
+            id: row['id'] as int?,
+            customerId: row['customerId'] as int,
+            carId: row['carId'] as int,
+            dealershipId: row['dealershipId'] as int,
+            purchaseDate: row['purchaseDate'] as String),
         arguments: [customerId]);
   }
 
@@ -195,11 +195,11 @@ class _$SaleRecordDao extends SaleRecordDao {
     return _queryAdapter.queryList(
         'SELECT * FROM SaleRecord WHERE carId = ?1 ORDER BY id DESC',
         mapper: (Map<String, Object?> row) => SaleRecord(
-            row['id'] as int,
-            row['customerId'] as int,
-            row['carId'] as int,
-            row['dealershipId'] as int,
-            row['purchaseDate'] as String),
+            id: row['id'] as int?,
+            customerId: row['customerId'] as int,
+            carId: row['carId'] as int,
+            dealershipId: row['dealershipId'] as int,
+            purchaseDate: row['purchaseDate'] as String),
         arguments: [carId]);
   }
 
@@ -208,11 +208,11 @@ class _$SaleRecordDao extends SaleRecordDao {
     return _queryAdapter.queryList(
         'SELECT * FROM SaleRecord WHERE dealershipId = ?1 ORDER BY id DESC',
         mapper: (Map<String, Object?> row) => SaleRecord(
-            row['id'] as int,
-            row['customerId'] as int,
-            row['carId'] as int,
-            row['dealershipId'] as int,
-            row['purchaseDate'] as String),
+            id: row['id'] as int?,
+            customerId: row['customerId'] as int,
+            carId: row['carId'] as int,
+            dealershipId: row['dealershipId'] as int,
+            purchaseDate: row['purchaseDate'] as String),
         arguments: [dealershipId]);
   }
 
@@ -220,6 +220,17 @@ class _$SaleRecordDao extends SaleRecordDao {
   Future<int?> countSaleRecords() async {
     return _queryAdapter.query('SELECT COUNT(*) FROM SaleRecord',
         mapper: (Map<String, Object?> row) => row.values.first as int);
+  }
+
+  @override
+  Future<List<SaleRecord>> findSalesByDateRange(
+    String startDate,
+    String endDate,
+  ) async {
+    return _queryAdapter.queryList(
+        'SELECT * FROM SaleRecord WHERE purchaseDate >= ?1 AND purchaseDate <= ?2 ORDER BY purchaseDate DESC',
+        mapper: (Map<String, Object?> row) => SaleRecord(id: row['id'] as int?, customerId: row['customerId'] as int, carId: row['carId'] as int, dealershipId: row['dealershipId'] as int, purchaseDate: row['purchaseDate'] as String),
+        arguments: [startDate, endDate]);
   }
 
   @override
