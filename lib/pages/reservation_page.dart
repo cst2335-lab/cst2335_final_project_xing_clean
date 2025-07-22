@@ -123,12 +123,14 @@ class _ReservationPageState extends State<ReservationPage> {
     try {
       final customerId = await _encryptedPrefs?.getString('last_customer_id');
       final flightId = await _encryptedPrefs?.getString('last_flight_id');
+      final flightDate = await _encryptedPrefs?.getString('last_flight_date');
       final reservationName = await _encryptedPrefs?.getString('last_reservation_name');
 
       if (mounted) {
         setState(() {
           _customerIdController.text = customerId ?? '';
           _flightIdController.text = flightId ?? '';
+          _flightDateController.text = flightDate ?? '';
           _reservationNameController.text = reservationName ?? '';
         });
       }
@@ -230,6 +232,7 @@ class _ReservationPageState extends State<ReservationPage> {
     try {
       await _encryptedPrefs?.setString('last_customer_id', _customerIdController.text);
       await _encryptedPrefs?.setString('last_flight_id', _flightIdController.text);
+      await _encryptedPrefs?.setString('last_flight_date', _flightDateController.text);
       await _encryptedPrefs?.setString('last_reservation_name', _reservationNameController.text);
       print('✅ Form data saved to encrypted preferences');
     } catch (e) {
@@ -479,6 +482,41 @@ class _ReservationPageState extends State<ReservationPage> {
                 const SizedBox(height: 8),
                 Text('7. ${_getText('Use delete button to remove reservations', 'Utilisez le bouton supprimer pour enlever des réservations')}'),
                 const SizedBox(height: 16),
+
+                // Business Rules Section
+                Container(
+                  padding: const EdgeInsets.all(12),
+                  decoration: BoxDecoration(
+                    color: Colors.blue.withOpacity(0.1),
+                    borderRadius: BorderRadius.circular(8),
+                  ),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        _getText('📋 Flight Booking Rules:', '📋 Règles de Réservation de Vol:'),
+                        style: const TextStyle(fontWeight: FontWeight.bold),
+                      ),
+                      const SizedBox(height: 8),
+                      Text(_getText(
+                          '• Each flight happens only once per day',
+                          '• Chaque vol n\'a lieu qu\'une fois par jour'
+                      )),
+                      const SizedBox(height: 4),
+                      Text(_getText(
+                          '• Flights repeat daily - no need to worry about specific weekdays',
+                          '• Les vols se répètent quotidiennement - pas besoin de s\'inquiéter des jours spécifiques'
+                      )),
+                      const SizedBox(height: 4),
+                      Text(_getText(
+                          '• Multiple flights between same cities have different Flight IDs',
+                          '• Plusieurs vols entre les mêmes villes ont des ID de vol différents'
+                      )),
+                    ],
+                  ),
+                ),
+
+                const SizedBox(height: 12),
 
                 Container(
                   padding: const EdgeInsets.all(12),
