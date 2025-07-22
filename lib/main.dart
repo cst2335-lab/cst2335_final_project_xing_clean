@@ -1,9 +1,9 @@
-/// Main entry point for the Car Management System Flutter application
+/// Main entry point for the Aviation Management System Flutter application
 /// CST2335 Final Project - Team Collaboration Project
 ///
-/// This application implements a complete car management system with
-/// four modules: Customer Management, Car Management, Dealership Management,
-/// and Sales Management (fully implemented).
+/// This application implements a complete aviation management system with
+/// four modules: Customer Management, Airplane Management, Flights Management,
+/// and Reservation Management (fully implemented).
 ///
 /// Project Requirements Addressed:
 /// * Complete Flutter application with navigation
@@ -12,13 +12,13 @@
 /// * Multi-module architecture for team development
 /// * Multi-language support (Requirement 8) - JSON-based Implementation
 ///
-/// Author: Sales Management Module Implementation
+/// Author: Reservation Management Module Implementation
 /// Course: CST2335 - Mobile Graphical Interface Programming
 /// Term: Fall 2024
 
 import 'package:flutter/material.dart';
 import 'package:flutter_localizations/flutter_localizations.dart';
-import 'pages/sales_page.dart';
+import 'pages/reservation_page.dart';
 import 'l10n/app_localizations.dart';
 
 /// Application entry point
@@ -66,12 +66,12 @@ class _MyAppState extends State<MyApp> {
   ///
   /// [context] - Build context for the widget tree
   ///
-  /// Returns: MaterialApp widget configured for the car management system
+  /// Returns: MaterialApp widget configured for the aviation management system
   @override
   Widget build(BuildContext context) {
     return MaterialApp(
       // Application title shown in task switcher
-      title: 'Car Management System - CST2335 Final Project',
+      title: 'Aviation Management System - CST2335 Final Project',
 
       // Remove debug banner for professional appearance (Requirement 10)
       debugShowCheckedModeBanner: false,
@@ -79,8 +79,8 @@ class _MyAppState extends State<MyApp> {
       // Internationalization configuration (Requirement 8)
       // Support for American English and British English
       supportedLocales: const [
-        Locale('en', 'US'), // American English
-        Locale('en', 'GB'), // British English
+        Locale('en'), // English
+        Locale('fr'), // French
       ],
 
       // Localization delegates - handles loading of translations
@@ -96,7 +96,7 @@ class _MyAppState extends State<MyApp> {
 
       // Application theme configuration for consistent design
       theme: ThemeData(
-        // Primary color scheme using Material Design
+        // Primary color scheme using Material Design - Aviation Blue
         primarySwatch: Colors.blue,
 
         // Visual density for optimal display across devices
@@ -157,16 +157,13 @@ class _MyAppState extends State<MyApp> {
         // Main landing page - central navigation hub
         '/': (context) => HomePage(),
 
-        // Sales management module - complete implementation
-        '/sales': (context) => SalesPage(),
-
-        // Multi-language testing page for Requirement 8 demonstration
-        '/language-test': (context) => LanguageTestingWidget(),
+        // Reservation management module - complete implementation
+        '/reservations': (context) => ReservationPage(),
 
         // TODO: Add routes for other team members
         // '/customers': (context) => CustomerPage(),
-        // '/cars': (context) => CarPage(),
-        // '/dealerships': (context) => DealershipPage(),
+        // '/airplanes': (context) => AirplanePage(),
+        // '/flights': (context) => FlightsPage(),
       },
 
       /// Handle unknown routes gracefully
@@ -189,7 +186,7 @@ class HomePage extends StatelessWidget {
 
     return Scaffold(
       appBar: AppBar(
-        title: Text(localizations?.appTitle ?? 'Car Management System'),
+        title: Text(localizations?.appTitle ?? 'Aviation Management System'),
         backgroundColor: Colors.blue,
       ),
       body: SingleChildScrollView(
@@ -224,14 +221,14 @@ class HomePage extends StatelessWidget {
             borderRadius: BorderRadius.circular(40),
           ),
           child: Icon(
-            Icons.business_center,
+            Icons.flight,
             color: Colors.white,
             size: 40,
           ),
         ),
         SizedBox(height: 20),
         Text(
-          localizations?.appTitle ?? 'Car Management System',
+          localizations?.appTitle ?? 'Aviation Management System',
           style: TextStyle(
             fontSize: 28,
             fontWeight: FontWeight.bold,
@@ -270,20 +267,16 @@ class HomePage extends StatelessWidget {
         ),
         SizedBox(height: 24),
 
-        // Sales Management button (implemented)
+        // Reservation Management button (implemented)
         _buildModuleButton(
           context: context,
-          title: localizations?.salesManagement ?? '🚀 Sales Management',
-          subtitle: 'Manage sales records and transactions - READY!',
-          route: '/sales',
-          color: Colors.red,
+          title: 'Reservation Page',
+          subtitle: 'Manage flight reservations and bookings - READY!',
+          route: '/reservations',
+          color: Colors.blue,
+          icon: Icons.flight_takeoff,
           isImplemented: true,
         ),
-
-        SizedBox(height: 16),
-
-        // Multi-language testing button - demonstrates Requirement 8
-        _buildLanguageTestButton(context),
 
         SizedBox(height: 16),
 
@@ -294,6 +287,7 @@ class HomePage extends StatelessWidget {
           subtitle: 'Add, view, update, and delete customers',
           route: '/customers',
           color: Colors.green,
+          icon: Icons.people,
           isImplemented: false,
         ),
 
@@ -301,10 +295,11 @@ class HomePage extends StatelessWidget {
 
         _buildModuleButton(
           context: context,
-          title: 'Car List Page',
-          subtitle: 'Add new cars to company inventory and manage car details',
-          route: '/cars',
+          title: 'Airplane List Page',
+          subtitle: 'Add new airplanes to company fleet and manage airplane details',
+          route: '/airplanes',
           color: Colors.orange,
+          icon: Icons.airplanemode_active,
           isImplemented: false,
         ),
 
@@ -312,10 +307,11 @@ class HomePage extends StatelessWidget {
 
         _buildModuleButton(
           context: context,
-          title: 'Car Dealership List Page',
-          subtitle: 'Add new dealerships and manage dealership locations',
-          route: '/dealerships',
+          title: 'Flights List Page',
+          subtitle: 'Add new flights between cities and manage flight schedules',
+          route: '/flights',
           color: Colors.purple,
+          icon: Icons.flight,
           isImplemented: false,
         ),
       ],
@@ -411,6 +407,7 @@ class HomePage extends StatelessWidget {
     required String subtitle,
     required String route,
     required Color color,
+    required IconData icon,
     required bool isImplemented,
   }) {
     return Card(
@@ -449,7 +446,7 @@ class HomePage extends StatelessWidget {
                     border: isImplemented ? Border.all(color: color, width: 2) : null,
                   ),
                   child: Icon(
-                    _getModuleIcon(title),
+                    icon,
                     color: color,
                     size: 30,
                   ),
@@ -500,15 +497,6 @@ class HomePage extends StatelessWidget {
         ),
       ),
     );
-  }
-
-  /// Gets appropriate icon for each module type
-  IconData _getModuleIcon(String title) {
-    if (title.contains('Sales')) return Icons.attach_money;
-    if (title.contains('Customer')) return Icons.people;
-    if (title.contains('Car')) return Icons.directions_car;
-    if (title.contains('Dealership')) return Icons.business;
-    return Icons.dashboard;
   }
 
   /// Builds project information footer
@@ -829,7 +817,6 @@ class _LanguageTestingWidgetState extends State<LanguageTestingWidget> {
             // Test some translations
             if (localizations != null) ...[
               Text('App Title: "${localizations.appTitle}"'),
-              Text('Sales Management: "${localizations.salesManagement}"'),
               Text('Customer ID: "${localizations.customerID}"'),
               Text('Add Record: "${localizations.addRecord}"'),
             ],

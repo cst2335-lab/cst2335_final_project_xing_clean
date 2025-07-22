@@ -1,50 +1,50 @@
-/// Sales Page Widget - English/French Language Support
+/// Reservation Page Widget - English/French Language Support
 ///
 /// Project Requirements Addressed:
 /// * Requirement 8: Multi-language support with English and French
-/// * Clean and simple interface design
+/// * Clean and simple interface design for flight reservations
 /// * Clear language switching demonstration
 library;
 
 import 'package:flutter/material.dart';
 import 'package:encrypted_shared_preferences/encrypted_shared_preferences.dart';
 import '../database/app_database.dart';
-import '../models/sale_record.dart';
+import '../models/reservation.dart';
 
-/// Main Sales Page with English/French language switching
+/// Main Reservation Page with English/French language switching
 ///
-/// Provides a clean interface for sales record management with
+/// Provides a clean interface for flight reservation management with
 /// bilingual support for better requirement demonstration
-class SalesPage extends StatefulWidget {
-  /// Creates a new SalesPage widget
-  const SalesPage({super.key});
+class ReservationPage extends StatefulWidget {
+  /// Creates a new ReservationPage widget
+  const ReservationPage({super.key});
 
   @override
-  State<SalesPage> createState() => _SalesPageState();
+  State<ReservationPage> createState() => _ReservationPageState();
 }
 
-/// State class for SalesPage with English/French switching
+/// State class for ReservationPage with English/French switching
 ///
 /// Manages language preference between English and French
 /// for clear multilingual demonstration
-class _SalesPageState extends State<SalesPage> {
+class _ReservationPageState extends State<ReservationPage> {
   /// Current language setting - true for French, false for English
   bool _isFrench = false;
 
-  /// List of sale records loaded from database
-  List<SaleRecord> _salesRecords = [];
+  /// List of reservations loaded from database
+  List<Reservation> _reservations = [];
 
-  /// Currently selected sale record for details view
-  SaleRecord? _selectedSaleRecord;
+  /// Currently selected reservation for details view
+  Reservation? _selectedReservation;
 
   /// Loading state indicator
   bool _isLoading = true;
 
   /// Form controllers for user input
   final TextEditingController _customerIdController = TextEditingController();
-  final TextEditingController _carIdController = TextEditingController();
-  final TextEditingController _dealershipIdController = TextEditingController();
-  final TextEditingController _purchaseDateController = TextEditingController();
+  final TextEditingController _flightIdController = TextEditingController();
+  final TextEditingController _flightDateController = TextEditingController();
+  final TextEditingController _reservationNameController = TextEditingController();
 
   /// Database instance for data persistence
   AppDatabase? _database;
@@ -69,14 +69,14 @@ class _SalesPageState extends State<SalesPage> {
 
       print('🔧 Step 2: Creating database connection...');
       _database = await $FloorAppDatabase
-          .databaseBuilder('sales_database.db')
+          .databaseBuilder('reservations_database.db')
           .build();
 
       print('🔧 Step 3: Loading form data from preferences...');
       await _loadFormData();
 
-      print('🔧 Step 4: Loading sales records from database...');
-      await _loadSalesRecords();
+      print('🔧 Step 4: Loading reservations from database...');
+      await _loadReservations();
 
       print('✅ Database initialization completed successfully');
     } catch (e, stackTrace) {
@@ -122,14 +122,14 @@ class _SalesPageState extends State<SalesPage> {
   Future<void> _loadFormData() async {
     try {
       final customerId = await _encryptedPrefs?.getString('last_customer_id');
-      final carId = await _encryptedPrefs?.getString('last_car_id');
-      final dealershipId = await _encryptedPrefs?.getString('last_dealership_id');
+      final flightId = await _encryptedPrefs?.getString('last_flight_id');
+      final reservationName = await _encryptedPrefs?.getString('last_reservation_name');
 
       if (mounted) {
         setState(() {
           _customerIdController.text = customerId ?? '';
-          _carIdController.text = carId ?? '';
-          _dealershipIdController.text = dealershipId ?? '';
+          _flightIdController.text = flightId ?? '';
+          _reservationNameController.text = reservationName ?? '';
         });
       }
     } catch (e) {
@@ -137,27 +137,27 @@ class _SalesPageState extends State<SalesPage> {
     }
   }
 
-  /// Load all sales records from database
+  /// Load all reservations from database
   ///
-  /// Fetches complete list of sales records and updates UI state
+  /// Fetches complete list of reservations and updates UI state
   /// Handles database errors gracefully with user feedback
-  Future<void> _loadSalesRecords() async {
+  Future<void> _loadReservations() async {
     try {
       if (_database != null) {
-        final records = await _database!.saleRecordDao.findAllSaleRecords();
+        final records = await _database!.reservationDao.findAllReservations();
         if (mounted) {
           setState(() {
-            _salesRecords = records;
+            _reservations = records;
           });
         }
-        print('✅ Loaded ${records.length} sales records from database');
+        print('✅ Loaded ${records.length} reservations from database');
       }
     } catch (e) {
-      print('❌ Error loading sales records: $e');
+      print('❌ Error loading reservations: $e');
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            content: Text(_getText('Failed to load sales records', 'Échec du chargement des enregistrements de vente')),
+            content: Text(_getText('Failed to load reservations', 'Échec du chargement des réservations')),
             backgroundColor: Colors.red,
           ),
         );
@@ -165,33 +165,33 @@ class _SalesPageState extends State<SalesPage> {
     }
   }
 
-  /// Add new sale record to database
+  /// Add new reservation to database
   ///
-  /// Validates form data, creates new SaleRecord instance,
+  /// Validates form data, creates new Reservation instance,
   /// saves to database and updates UI with success feedback
-  Future<void> _addSaleRecord() async {
+  Future<void> _addReservation() async {
     // Validate form input
     if (!_validateForm()) {
       return;
     }
 
     try {
-      // Create new sale record
-      final newRecord = SaleRecord.create(
+      // Create new reservation
+      final newReservation = Reservation.create(
         customerId: int.parse(_customerIdController.text),
-        carId: int.parse(_carIdController.text),
-        dealershipId: int.parse(_dealershipIdController.text),
-        purchaseDate: _purchaseDateController.text,
+        flightId: int.parse(_flightIdController.text),
+        flightDate: _flightDateController.text,
+        reservationName: _reservationNameController.text.trim(),
       );
 
       // Save to database
-      await _database!.saleRecordDao.insertSaleRecord(newRecord);
+      await _database!.reservationDao.insertReservation(newReservation);
 
       // Save form data to preferences
       await _saveFormData();
 
       // Reload records and clear form
-      await _loadSalesRecords();
+      await _loadReservations();
       _clearForm();
 
       // Show success message
@@ -199,21 +199,21 @@ class _SalesPageState extends State<SalesPage> {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
             content: Text(_getText(
-                'Sale record added successfully!',
-                'Enregistrement de vente ajouté avec succès!'
+                'Reservation added successfully!',
+                'Réservation ajoutée avec succès!'
             )),
             backgroundColor: Colors.green,
           ),
         );
       }
     } catch (e) {
-      print('❌ Error adding sale record: $e');
+      print('❌ Error adding reservation: $e');
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
             content: Text(_getText(
-                'Error adding sale record',
-                'Erreur lors de l\'ajout de l\'enregistrement'
+                'Error adding reservation',
+                'Erreur lors de l\'ajout de la réservation'
             )),
             backgroundColor: Colors.red,
           ),
@@ -229,8 +229,8 @@ class _SalesPageState extends State<SalesPage> {
   Future<void> _saveFormData() async {
     try {
       await _encryptedPrefs?.setString('last_customer_id', _customerIdController.text);
-      await _encryptedPrefs?.setString('last_car_id', _carIdController.text);
-      await _encryptedPrefs?.setString('last_dealership_id', _dealershipIdController.text);
+      await _encryptedPrefs?.setString('last_flight_id', _flightIdController.text);
+      await _encryptedPrefs?.setString('last_reservation_name', _reservationNameController.text);
       print('✅ Form data saved to encrypted preferences');
     } catch (e) {
       print('⚠️ Warning: Could not save form data: $e');
@@ -247,18 +247,18 @@ class _SalesPageState extends State<SalesPage> {
       return false;
     }
 
-    if (_carIdController.text.isEmpty) {
-      _showValidationError(_getText('Car ID is required', 'L\'ID de la voiture est requis'));
+    if (_flightIdController.text.isEmpty) {
+      _showValidationError(_getText('Flight ID is required', 'L\'ID du vol est requis'));
       return false;
     }
 
-    if (_dealershipIdController.text.isEmpty) {
-      _showValidationError(_getText('Dealership ID is required', 'L\'ID du concessionnaire est requis'));
+    if (_flightDateController.text.isEmpty) {
+      _showValidationError(_getText('Flight date is required', 'La date du vol est requise'));
       return false;
     }
 
-    if (_purchaseDateController.text.isEmpty) {
-      _showValidationError(_getText('Purchase date is required', 'La date d\'achat est requise'));
+    if (_reservationNameController.text.trim().isEmpty) {
+      _showValidationError(_getText('Reservation name is required', 'Le nom de la réservation est requis'));
       return false;
     }
 
@@ -268,13 +268,8 @@ class _SalesPageState extends State<SalesPage> {
       return false;
     }
 
-    if (int.tryParse(_carIdController.text) == null) {
-      _showValidationError(_getText('Invalid Car ID format', 'Format d\'ID de voiture invalide'));
-      return false;
-    }
-
-    if (int.tryParse(_dealershipIdController.text) == null) {
-      _showValidationError(_getText('Invalid Dealership ID format', 'Format d\'ID de concessionnaire invalide'));
+    if (int.tryParse(_flightIdController.text) == null) {
+      _showValidationError(_getText('Invalid Flight ID format', 'Format d\'ID de vol invalide'));
       return false;
     }
 
@@ -305,19 +300,19 @@ class _SalesPageState extends State<SalesPage> {
 
   /// Clear all form fields
   ///
-  /// Resets form to empty state for new record entry
+  /// Resets form to empty state for new reservation entry
   void _clearForm() {
     _customerIdController.clear();
-    _carIdController.clear();
-    _dealershipIdController.clear();
-    _purchaseDateController.clear();
+    _flightIdController.clear();
+    _flightDateController.clear();
+    _reservationNameController.clear();
   }
 
-  /// Delete sale record from database
+  /// Delete reservation from database
   ///
-  /// [record] SaleRecord to delete
+  /// [reservation] Reservation to delete
   /// Shows confirmation dialog before deletion
-  Future<void> _deleteSaleRecord(SaleRecord record) async {
+  Future<void> _deleteReservation(Reservation reservation) async {
     // Show confirmation dialog
     final bool? confirmed = await showDialog<bool>(
       context: context,
@@ -325,8 +320,8 @@ class _SalesPageState extends State<SalesPage> {
         return AlertDialog(
           title: Text(_getText('Confirm Deletion', 'Confirmer la suppression')),
           content: Text(_getText(
-              'Are you sure you want to delete this sale record?',
-              'Êtes-vous sûr de vouloir supprimer cet enregistrement de vente?'
+              'Are you sure you want to delete this reservation?',
+              'Êtes-vous sûr de vouloir supprimer cette réservation?'
           )),
           actions: [
             TextButton(
@@ -344,13 +339,13 @@ class _SalesPageState extends State<SalesPage> {
 
     if (confirmed == true) {
       try {
-        await _database!.saleRecordDao.deleteSaleRecord(record);
-        await _loadSalesRecords();
+        await _database!.reservationDao.deleteReservation(reservation);
+        await _loadReservations();
 
         // Clear selection if deleted record was selected
-        if (_selectedSaleRecord?.id == record.id) {
+        if (_selectedReservation?.id == reservation.id) {
           setState(() {
-            _selectedSaleRecord = null;
+            _selectedReservation = null;
           });
         }
 
@@ -358,21 +353,21 @@ class _SalesPageState extends State<SalesPage> {
           ScaffoldMessenger.of(context).showSnackBar(
             SnackBar(
               content: Text(_getText(
-                  'Sale record deleted successfully',
-                  'Enregistrement de vente supprimé avec succès'
+                  'Reservation deleted successfully',
+                  'Réservation supprimée avec succès'
               )),
               backgroundColor: Colors.orange,
             ),
           );
         }
       } catch (e) {
-        print('❌ Error deleting sale record: $e');
+        print('❌ Error deleting reservation: $e');
         if (mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
             SnackBar(
               content: Text(_getText(
-                  'Error deleting sale record',
-                  'Erreur lors de la suppression de l\'enregistrement'
+                  'Error deleting reservation',
+                  'Erreur lors de la suppression de la réservation'
               )),
               backgroundColor: Colors.red,
             ),
@@ -459,7 +454,7 @@ class _SalesPageState extends State<SalesPage> {
       context: context,
       builder: (BuildContext context) {
         return AlertDialog(
-          title: Text(_getText('Sales Management Help', 'Aide à la gestion des ventes')),
+          title: Text(_getText('Reservation Management Help', 'Aide à la gestion des réservations')),
           content: SingleChildScrollView(
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
@@ -470,15 +465,19 @@ class _SalesPageState extends State<SalesPage> {
                   style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
                 ),
                 const SizedBox(height: 12),
-                Text('1. ${_getText('Fill in the form fields', 'Remplissez les champs du formulaire')}'),
+                Text('1. ${_getText('Fill in the Customer ID field', 'Remplissez le champ ID Client')}'),
                 const SizedBox(height: 8),
-                Text('2. ${_getText('Enter the purchase date', 'Entrez la date d\'achat')}'),
+                Text('2. ${_getText('Enter the Flight ID for the desired flight', 'Entrez l\'ID du vol souhaité')}'),
                 const SizedBox(height: 8),
-                Text('3. ${_getText('Click "Add Sale Record"', 'Cliquez sur "Ajouter un enregistrement"')}'),
+                Text('3. ${_getText('Select the flight date', 'Sélectionnez la date du vol')}'),
                 const SizedBox(height: 8),
-                Text('4. ${_getText('Tap any record to view details', 'Appuyez sur un enregistrement pour voir les détails')}'),
+                Text('4. ${_getText('Add a reservation name (e.g., "Summer Vacation")', 'Ajoutez un nom de réservation (ex: "Vacances d\'été")')}'),
                 const SizedBox(height: 8),
-                Text('5. ${_getText('Use delete button to remove records', 'Utilisez le bouton supprimer pour enlever des enregistrements')}'),
+                Text('5. ${_getText('Click "Add Reservation" to save', 'Cliquez sur "Ajouter une réservation" pour sauvegarder')}'),
+                const SizedBox(height: 8),
+                Text('6. ${_getText('Tap any reservation to view details', 'Appuyez sur une réservation pour voir les détails')}'),
+                const SizedBox(height: 8),
+                Text('7. ${_getText('Use delete button to remove reservations', 'Utilisez le bouton supprimer pour enlever des réservations')}'),
                 const SizedBox(height: 16),
 
                 Container(
@@ -513,18 +512,18 @@ class _SalesPageState extends State<SalesPage> {
 
   /// Select date using date picker
   ///
-  /// Opens native date picker and updates purchase date field
+  /// Opens native date picker and updates flight date field
   Future<void> _selectDate() async {
     final DateTime? picked = await showDatePicker(
       context: context,
       initialDate: DateTime.now(),
-      firstDate: DateTime(2000),
-      lastDate: DateTime.now(),
+      firstDate: DateTime.now(), // Can't book flights in the past
+      lastDate: DateTime.now().add(const Duration(days: 365)), // Up to 1 year ahead
     );
 
     if (picked != null) {
       setState(() {
-        _purchaseDateController.text = picked.toString().split(' ')[0];
+        _flightDateController.text = picked.toString().split(' ')[0];
       });
     }
   }
@@ -553,7 +552,7 @@ class _SalesPageState extends State<SalesPage> {
       );
     } else {
       // Phone layout: Full screen list/form or details
-      if (_selectedSaleRecord != null) {
+      if (_selectedReservation != null) {
         return _buildDetailsPanel();
       } else {
         return _buildListAndForm();
@@ -563,18 +562,18 @@ class _SalesPageState extends State<SalesPage> {
 
   /// Build list and form section
   ///
-  /// Contains the main sales records list and add record form
+  /// Contains the main reservations list and add reservation form
   Widget _buildListAndForm() {
     return Column(
       children: [
-        // Add Record Form
+        // Add Reservation Form
         Padding(
           padding: const EdgeInsets.all(16),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               Text(
-                _getText('Add New Sale Record', 'Ajouter un nouvel enregistrement de vente'),
+                _getText('Add New Reservation', 'Ajouter une nouvelle réservation'),
                 style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
               ),
               const SizedBox(height: 16),
@@ -582,55 +581,74 @@ class _SalesPageState extends State<SalesPage> {
                 controller: _customerIdController,
                 decoration: InputDecoration(
                   labelText: _getText('Customer ID', 'ID Client'),
+                  hintText: _getText('Enter customer ID', 'Entrez l\'ID du client'),
                   border: const OutlineInputBorder(),
+                  prefixIcon: const Icon(Icons.person),
                 ),
                 keyboardType: TextInputType.number,
               ),
               const SizedBox(height: 12),
               TextField(
-                controller: _carIdController,
+                controller: _flightIdController,
                 decoration: InputDecoration(
-                  labelText: _getText('Car ID', 'ID Voiture'),
+                  labelText: _getText('Flight ID', 'ID du Vol'),
+                  hintText: _getText('Enter flight ID', 'Entrez l\'ID du vol'),
                   border: const OutlineInputBorder(),
+                  prefixIcon: const Icon(Icons.flight),
                 ),
                 keyboardType: TextInputType.number,
               ),
               const SizedBox(height: 12),
               TextField(
-                controller: _dealershipIdController,
+                controller: _flightDateController,
                 decoration: InputDecoration(
-                  labelText: _getText('Dealership ID', 'ID Concessionnaire'),
+                  labelText: _getText('Flight Date', 'Date du Vol'),
+                  hintText: _getText('Select flight date', 'Sélectionnez la date du vol'),
                   border: const OutlineInputBorder(),
-                ),
-                keyboardType: TextInputType.number,
-              ),
-              const SizedBox(height: 12),
-              TextField(
-                controller: _purchaseDateController,
-                decoration: InputDecoration(
-                  labelText: _getText('Purchase Date', 'Date d\'achat'),
-                  border: const OutlineInputBorder(),
+                  prefixIcon: const Icon(Icons.calendar_today),
                   suffixIcon: IconButton(
-                    icon: const Icon(Icons.calendar_today),
+                    icon: const Icon(Icons.calendar_month),
                     onPressed: _selectDate,
                   ),
                 ),
                 readOnly: true,
                 onTap: _selectDate,
               ),
+              const SizedBox(height: 12),
+              TextField(
+                controller: _reservationNameController,
+                decoration: InputDecoration(
+                  labelText: _getText('Reservation Name', 'Nom de la Réservation'),
+                  hintText: _getText('e.g., "Summer Vacation"', 'ex: "Vacances d\'été"'),
+                  border: const OutlineInputBorder(),
+                  prefixIcon: const Icon(Icons.bookmark),
+                ),
+                textCapitalization: TextCapitalization.words,
+              ),
               const SizedBox(height: 16),
               Row(
                 children: [
                   Expanded(
-                    child: ElevatedButton(
-                      onPressed: _addSaleRecord,
-                      child: Text(_getText('Add Sale Record', 'Ajouter un enregistrement')),
+                    child: ElevatedButton.icon(
+                      onPressed: _addReservation,
+                      icon: const Icon(Icons.add),
+                      label: Text(_getText('Add Reservation', 'Ajouter une Réservation')),
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: Colors.blue,
+                        foregroundColor: Colors.white,
+                        padding: const EdgeInsets.symmetric(vertical: 12),
+                      ),
                     ),
                   ),
                   const SizedBox(width: 8),
-                  ElevatedButton(
+                  ElevatedButton.icon(
                     onPressed: _clearForm,
-                    child: Text(_getText('Clear', 'Effacer')),
+                    icon: const Icon(Icons.clear),
+                    label: Text(_getText('Clear', 'Effacer')),
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: Colors.grey,
+                      foregroundColor: Colors.white,
+                    ),
                   ),
                 ],
               ),
@@ -638,37 +656,88 @@ class _SalesPageState extends State<SalesPage> {
           ),
         ),
 
-        // Records List
+        // Reservations List
         Expanded(
-          child: _salesRecords.isEmpty
+          child: _reservations.isEmpty
               ? Center(
-            child: Text(
-              _getText('No sale records found', 'Aucun enregistrement de vente trouvé'),
-              style: const TextStyle(fontSize: 16),
+            child: Column(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                Icon(
+                  Icons.flight_takeoff,
+                  size: 64,
+                  color: Colors.grey[400],
+                ),
+                const SizedBox(height: 16),
+                Text(
+                  _getText('No reservations found', 'Aucune réservation trouvée'),
+                  style: const TextStyle(fontSize: 16),
+                ),
+                const SizedBox(height: 8),
+                Text(
+                  _getText('Add your first reservation using the form above', 'Ajoutez votre première réservation avec le formulaire ci-dessus'),
+                  style: TextStyle(color: Colors.grey[600]),
+                  textAlign: TextAlign.center,
+                ),
+              ],
             ),
           )
               : ListView.builder(
-            itemCount: _salesRecords.length,
+            itemCount: _reservations.length,
             itemBuilder: (context, index) {
-              final record = _salesRecords[index];
-              return ListTile(
-                title: Text(_getText(
-                    'Customer ${record.customerId} - Car ${record.carId}',
-                    'Client ${record.customerId} - Voiture ${record.carId}'
-                )),
-                subtitle: Text(_getText(
-                    'Dealership: ${record.dealershipId}, Date: ${record.purchaseDate}',
-                    'Concessionnaire: ${record.dealershipId}, Date: ${record.purchaseDate}'
-                )),
-                trailing: IconButton(
-                  icon: const Icon(Icons.delete),
-                  onPressed: () => _deleteSaleRecord(record),
+              final reservation = _reservations[index];
+              final isSelected = _selectedReservation?.id == reservation.id;
+
+              return Card(
+                margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
+                elevation: isSelected ? 4 : 2,
+                color: isSelected ? Colors.blue.withOpacity(0.1) : null,
+                child: ListTile(
+                  leading: CircleAvatar(
+                    backgroundColor: isSelected ? Colors.blue : Colors.orange,
+                    child: const Icon(
+                      Icons.flight_takeoff,
+                      color: Colors.white,
+                    ),
+                  ),
+                  title: Text(
+                    reservation.reservationName,
+                    style: TextStyle(
+                      fontWeight: isSelected ? FontWeight.bold : FontWeight.normal,
+                    ),
+                  ),
+                  subtitle: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(_getText(
+                          'Customer ${reservation.customerId} • Flight ${reservation.flightId}',
+                          'Client ${reservation.customerId} • Vol ${reservation.flightId}'
+                      )),
+                      Text(_getText(
+                          'Date: ${reservation.flightDate}',
+                          'Date: ${reservation.flightDate}'
+                      )),
+                    ],
+                  ),
+                  trailing: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      if (isSelected)
+                        const Icon(Icons.check_circle, color: Colors.blue),
+                      IconButton(
+                        icon: const Icon(Icons.delete, color: Colors.red),
+                        onPressed: () => _deleteReservation(reservation),
+                        tooltip: _getText('Delete reservation', 'Supprimer la réservation'),
+                      ),
+                    ],
+                  ),
+                  onTap: () {
+                    setState(() {
+                      _selectedReservation =
+                      _selectedReservation?.id == reservation.id ? null : reservation;
+                    });
+                  },
                 ),
-                onTap: () {
-                  setState(() {
-                    _selectedSaleRecord = record;
-                  });
-                },
               );
             },
           ),
@@ -677,18 +746,36 @@ class _SalesPageState extends State<SalesPage> {
     );
   }
 
-  /// Build details panel for selected record
+  /// Build details panel for selected reservation
   ///
-  /// Shows information about the selected sale record
+  /// Shows information about the selected reservation
   Widget _buildDetailsPanel() {
     final size = MediaQuery.of(context).size;
     final isPhone = size.width <= 720 || size.width <= size.height;
 
-    if (_selectedSaleRecord == null) {
+    if (_selectedReservation == null) {
       return Center(
-        child: Text(
-          _getText('Select a sale record to view details', 'Sélectionnez un enregistrement pour voir les détails'),
-          style: const TextStyle(fontSize: 16),
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Icon(
+              Icons.touch_app,
+              size: 64,
+              color: Colors.grey[400],
+            ),
+            const SizedBox(height: 16),
+            Text(
+              _getText('Select a reservation to view details', 'Sélectionnez une réservation pour voir les détails'),
+              style: const TextStyle(fontSize: 16),
+              textAlign: TextAlign.center,
+            ),
+            const SizedBox(height: 8),
+            Text(
+              _getText('Tap any reservation from the list', 'Appuyez sur une réservation de la liste'),
+              style: TextStyle(color: Colors.grey[600]),
+              textAlign: TextAlign.center,
+            ),
+          ],
         ),
       );
     }
@@ -705,38 +792,124 @@ class _SalesPageState extends State<SalesPage> {
                   icon: const Icon(Icons.arrow_back),
                   onPressed: () {
                     setState(() {
-                      _selectedSaleRecord = null;
+                      _selectedReservation = null;
                     });
                   },
                 ),
                 Text(
-                  _getText('Sale Record Details', 'Détails de l\'enregistrement'),
+                  _getText('Reservation Details', 'Détails de la Réservation'),
                   style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
                 ),
               ],
             )
           else
             Text(
-              _getText('Sale Record Details', 'Détails de l\'enregistrement'),
+              _getText('Reservation Details', 'Détails de la Réservation'),
               style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
             ),
           const SizedBox(height: 16),
-          Text('${_getText('Record ID', 'ID Enregistrement')}: ${_selectedSaleRecord!.id}'),
-          const SizedBox(height: 8),
-          Text('${_getText('Customer ID', 'ID Client')}: ${_selectedSaleRecord!.customerId}'),
-          const SizedBox(height: 8),
-          Text('${_getText('Car ID', 'ID Voiture')}: ${_selectedSaleRecord!.carId}'),
-          const SizedBox(height: 8),
-          Text('${_getText('Dealership ID', 'ID Concessionnaire')}: ${_selectedSaleRecord!.dealershipId}'),
-          const SizedBox(height: 8),
-          Text('${_getText('Purchase Date', 'Date d\'achat')}: ${_selectedSaleRecord!.purchaseDate}'),
+
+          // Reservation info cards
+          _buildDetailCard(
+            icon: Icons.bookmark,
+            title: _getText('Reservation Name', 'Nom de la Réservation'),
+            value: _selectedReservation!.reservationName,
+            color: Colors.purple,
+          ),
+          const SizedBox(height: 12),
+
+          _buildDetailCard(
+            icon: Icons.tag,
+            title: _getText('Reservation ID', 'ID Réservation'),
+            value: '${_selectedReservation!.id}',
+            color: Colors.blue,
+          ),
+          const SizedBox(height: 12),
+
+          _buildDetailCard(
+            icon: Icons.person,
+            title: _getText('Customer ID', 'ID Client'),
+            value: '${_selectedReservation!.customerId}',
+            color: Colors.green,
+          ),
+          const SizedBox(height: 12),
+
+          _buildDetailCard(
+            icon: Icons.flight,
+            title: _getText('Flight ID', 'ID du Vol'),
+            value: '${_selectedReservation!.flightId}',
+            color: Colors.orange,
+          ),
+          const SizedBox(height: 12),
+
+          _buildDetailCard(
+            icon: Icons.calendar_today,
+            title: _getText('Flight Date', 'Date du Vol'),
+            value: _selectedReservation!.flightDate,
+            color: Colors.red,
+          ),
+
           const Spacer(),
-          ElevatedButton(
-            onPressed: () => _deleteSaleRecord(_selectedSaleRecord!),
-            style: ElevatedButton.styleFrom(backgroundColor: Colors.red),
-            child: Text(
-              _getText('Delete Record', 'Supprimer l\'enregistrement'),
-              style: const TextStyle(color: Colors.white),
+
+          ElevatedButton.icon(
+            onPressed: () => _deleteReservation(_selectedReservation!),
+            icon: const Icon(Icons.delete),
+            label: Text(_getText('Delete Reservation', 'Supprimer la Réservation')),
+            style: ElevatedButton.styleFrom(
+              backgroundColor: Colors.red,
+              foregroundColor: Colors.white,
+              minimumSize: const Size(double.infinity, 48),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  /// Build a detail information card
+  ///
+  /// [icon] Icon to display
+  /// [title] Title text
+  /// [value] Value text
+  /// [color] Theme color
+  Widget _buildDetailCard({
+    required IconData icon,
+    required String title,
+    required String value,
+    required Color color,
+  }) {
+    return Container(
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: color.withOpacity(0.1),
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: color.withOpacity(0.3)),
+      ),
+      child: Row(
+        children: [
+          Icon(icon, color: color, size: 24),
+          const SizedBox(width: 12),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  title,
+                  style: TextStyle(
+                    fontSize: 12,
+                    color: color,
+                    fontWeight: FontWeight.w600,
+                  ),
+                ),
+                const SizedBox(height: 4),
+                Text(
+                  value,
+                  style: const TextStyle(
+                    fontSize: 16,
+                    fontWeight: FontWeight.bold,
+                  ),
+                ),
+              ],
             ),
           ),
         ],
@@ -748,7 +921,9 @@ class _SalesPageState extends State<SalesPage> {
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        title: Text(_getText('Sales Management', 'Gestion des ventes')),
+        title: Text(_getText('Reservation Management', 'Gestion des Réservations')),
+        backgroundColor: Colors.blue,
+        foregroundColor: Colors.white,
         actions: [
           IconButton(
             icon: const Icon(Icons.language),
@@ -769,7 +944,13 @@ class _SalesPageState extends State<SalesPage> {
           children: [
             const CircularProgressIndicator(),
             const SizedBox(height: 16),
-            Text(_getText('Loading sales data...', 'Chargement des données de vente...')),
+            Text(_getText('Loading reservations...', 'Chargement des réservations...')),
+            const SizedBox(height: 8),
+            Text(
+              _getText('Please wait while we initialize the database', 'Veuillez patienter pendant l\'initialisation de la base de données'),
+              style: TextStyle(color: Colors.grey[600]),
+              textAlign: TextAlign.center,
+            ),
           ],
         ),
       )
@@ -780,9 +961,9 @@ class _SalesPageState extends State<SalesPage> {
   @override
   void dispose() {
     _customerIdController.dispose();
-    _carIdController.dispose();
-    _dealershipIdController.dispose();
-    _purchaseDateController.dispose();
+    _flightIdController.dispose();
+    _flightDateController.dispose();
+    _reservationNameController.dispose();
     super.dispose();
   }
 }
