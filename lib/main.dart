@@ -16,6 +16,7 @@
 /// Course: CST2335 - Mobile Graphical Interface Programming
 /// Term: Fall 2024
 
+import 'package:cst2335_final_project_xing/pages/flights_page.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_localizations/flutter_localizations.dart';
 import 'pages/reservation_page.dart';
@@ -163,7 +164,8 @@ class _MyAppState extends State<MyApp> {
         // TODO: Add routes for other team members
         // '/customers': (context) => CustomerPage(),
         // '/airplanes': (context) => AirplanePage(),
-        // '/flights': (context) => FlightsPage(),
+        '/flights': (context) => FlightsPage(),
+
       },
 
       /// Handle unknown routes gracefully
@@ -312,8 +314,9 @@ class HomePage extends StatelessWidget {
           route: '/flights',
           color: Colors.purple,
           icon: Icons.flight,
-          isImplemented: false,
+          isImplemented: true,
         ),
+
       ],
     );
   }
