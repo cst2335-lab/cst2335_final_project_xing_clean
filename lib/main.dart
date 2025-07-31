@@ -18,6 +18,7 @@
 
 import 'package:flutter/material.dart';
 import 'package:flutter_localizations/flutter_localizations.dart';
+import 'pages/customer_page.dart';
 import 'pages/reservation_page.dart';
 import 'l10n/app_localizations.dart';
 
@@ -161,7 +162,7 @@ class _MyAppState extends State<MyApp> {
         '/reservations': (context) => ReservationPage(),
 
         // TODO: Add routes for other team members
-        // '/customers': (context) => CustomerPage(),
+        '/customers': (context) => CustomerPage(),
         // '/airplanes': (context) => AirplanePage(),
         // '/flights': (context) => FlightsPage(),
       },
@@ -288,7 +289,7 @@ class HomePage extends StatelessWidget {
           route: '/customers',
           color: Colors.green,
           icon: Icons.people,
-          isImplemented: false,
+          isImplemented: true,
         ),
 
         SizedBox(height: 16),
