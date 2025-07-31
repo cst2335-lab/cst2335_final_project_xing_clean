@@ -58,10 +58,10 @@ class _FlightsPageState extends State<FlightsPage> {
 
     if (reuse == true) {
       try {
-        departureCityController.text = await encryptedPrefs.getString('flight_departure') ?? '';
-        destinationCityController.text = await encryptedPrefs.getString('flight_destination') ?? '';
-        departureTimeController.text = await encryptedPrefs.getString('flight_departureTime') ?? '';
-        arrivalTimeController.text = await encryptedPrefs.getString('flight_arrivalTime') ?? '';
+        departureCityController.text = await encryptedPrefs.getString('flight_departure');
+        destinationCityController.text = await encryptedPrefs.getString('flight_destination');
+        departureTimeController.text = await encryptedPrefs.getString('flight_departureTime');
+        arrivalTimeController.text = await encryptedPrefs.getString('flight_arrivalTime');
       } catch (e) {
         print('Failed to load previous flight: \$e');
       }
@@ -144,7 +144,7 @@ class _FlightsPageState extends State<FlightsPage> {
       physics: NeverScrollableScrollPhysics(),
       itemCount: flights.length,
       itemBuilder: (context, index) {
-        final flight = flights[index];
+        final  flight = flights[index];
         return Card(
           child: ListTile(
             title: Text('\${flight.departure} → \${flight.destination}'),
