@@ -53,6 +53,7 @@ dependencies:
   # For date formatting and manipulation in sales records
   intl: 0.19.0
 
+
 dev_dependencies:
   flutter_test:
     sdk: flutter
