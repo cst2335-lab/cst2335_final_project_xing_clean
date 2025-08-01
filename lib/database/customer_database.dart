@@ -1,28 +1,17 @@
-// lib/database/customer_database.dart
 import 'dart:async';
 import 'package:floor/floor.dart';
 import 'package:sqflite/sqflite.dart' as sqflite;
-
-// Import your entities and DAOs
 import '../models/customer.dart';
 import '../dao/customer_dao.dart';
 
-// This annotation tells the code generator where to put the generated code
 part 'customer_database.g.dart';
 
 /// Customer database configuration
 /// Uses Floor library for SQLite database management
-///
-/// Project Requirements Addressed:
-/// * Requirement 3: Database storage for ListView items
-/// * Persistent storage that survives app restarts
-/// * SQLite implementation as specified in project requirements
-/// * CRUD operations for customer management system
-///
-/// Database Schema:
-/// * Customer table with auto-increment primary key
-/// * Stores first name, last name, address, and date of birth
-/// * Supports all required database operations (insert, update, delete, query)
+/// Database features:
+/// Customer table with auto-increment primary key
+/// Stores first name, last name, address, and date of birth
+/// Supports all required database operations (insert, update, delete, query)
 @Database(version: 1, entities: [Customer])
 abstract class CustomerDatabase extends FloorDatabase {
   /// Getter for accessing customer data operations
@@ -37,7 +26,7 @@ abstract class CustomerDatabase extends FloorDatabase {
   /// This method should be called once in the application lifecycle
   /// to initialize the database connection
   ///
-  /// [databaseName] - Name of the database file (default: 'customers_database.db')
+  /// [databaseName] - Name of the database file
   ///
   /// Returns: Future containing the initialized CustomerDatabase instance
   ///
@@ -54,10 +43,6 @@ abstract class CustomerDatabase extends FloorDatabase {
 
   /// Static method to create database with callback handling
   /// Creates database with proper lifecycle callbacks
-  ///
-  /// Includes callbacks for database creation and opening events
-  /// Useful for debugging and monitoring database operations
-  ///
   /// [databaseName] - Name of the database file
   ///
   /// Returns: Future containing the initialized CustomerDatabase instance
@@ -79,23 +64,9 @@ abstract class CustomerDatabase extends FloorDatabase {
     }
   }
 
-  /// Static method for development/testing database
-  /// Creates an in-memory database for testing purposes
-  ///
-  /// This database will be destroyed when the app closes
-  /// Useful for unit testing and development
-  ///
-  /// Returns: Future containing the in-memory CustomerDatabase instance
-  static Future<CustomerDatabase> createInMemoryDatabase() async {
-    try {
-      return await $FloorCustomerDatabase.inMemoryDatabaseBuilder().build();
-    } catch (e) {
-      throw Exception('Failed to create in-memory customer database: $e');
-    }
-  }
 
   /// Method to close database connection
-  /// Should be called when the application is shutting down
+  /// Called when the application is shutting down
   ///
   /// Properly closes the database connection to prevent data corruption
   /// and release system resources
@@ -105,39 +76,6 @@ abstract class CustomerDatabase extends FloorDatabase {
       print('Customer database connection closed successfully');
     } catch (e) {
       print('Error closing customer database: $e');
-    }
-  }
-
-  /// Method to perform database health check
-  /// Validates that the database is accessible and functional
-  ///
-  /// Tests basic database operations to ensure everything is working
-  ///
-  /// Returns: Future<bool> indicating if database is healthy
-  Future<bool> performHealthCheck() async {
-    try {
-      // Try to perform a simple count operation to test database access
-      final count = await customerDao.countCustomers();
-      print('Customer database health check passed. Current customers: ${count ?? 0}');
-      return true;
-    } catch (e) {
-      print('Customer database health check failed: $e');
-      return false;
-    }
-  }
-
-  /// Method to get total count of customers
-  /// Useful for statistics and monitoring
-  /// Handles nullable return from DAO method
-  ///
-  /// Returns: Future<int> containing the total number of customers
-  Future<int> getTotalCustomersCount() async {
-    try {
-      final count = await customerDao.countCustomers();
-      return count ?? 0; // Handle null case
-    } catch (e) {
-      print('Error getting customers count: $e');
-      return 0;
     }
   }
 
@@ -155,7 +93,6 @@ abstract class CustomerDatabase extends FloorDatabase {
   }
 
   /// Method to save a new customer
-  /// Wrapper around DAO insert method with error handling
   ///
   /// [customer] - Customer to save
   ///
@@ -172,7 +109,6 @@ abstract class CustomerDatabase extends FloorDatabase {
   }
 
   /// Method to update an existing customer
-  /// Wrapper around DAO update method with error handling
   ///
   /// [customer] - Updated customer
   ///
@@ -189,7 +125,6 @@ abstract class CustomerDatabase extends FloorDatabase {
   }
 
   /// Method to delete a customer
-  /// Wrapper around DAO delete method with error handling
   ///
   /// [customer] - Customer to delete
   ///
@@ -202,39 +137,6 @@ abstract class CustomerDatabase extends FloorDatabase {
     } catch (e) {
       print('Error deleting customer: $e');
       return false;
-    }
-  }
-
-  /// Method to delete a customer by ID
-  /// Wrapper around DAO delete by ID method with error handling
-  ///
-  /// [id] - ID of customer to delete
-  ///
-  /// Returns: Future<bool> indicating if deletion was successful
-  Future<bool> removeCustomerById(int id) async {
-    try {
-      await customerDao.deleteCustomerById(id);
-      print('Customer with ID $id deleted successfully');
-      return true;
-    } catch (e) {
-      print('Error deleting customer by ID: $e');
-      return false;
-    }
-  }
-
-  /// Method to search customers by name
-  /// Allows users to find customers by partial name matching
-  ///
-  /// [searchTerm] - Search term (use % for wildcard matching)
-  ///
-  /// Returns: Future<List<Customer>> containing matching customers
-  Future<List<Customer>> searchCustomersByName(String searchTerm) async {
-    try {
-      final wildcardTerm = '%$searchTerm%'; // Add wildcards for partial matching
-      return await customerDao.searchCustomersByName(wildcardTerm);
-    } catch (e) {
-      print('Error searching customers by name: $e');
-      return [];
     }
   }
 
@@ -266,36 +168,6 @@ abstract class CustomerDatabase extends FloorDatabase {
     } catch (e) {
       print('Error checking for duplicate customer: $e');
       return false;
-    }
-  }
-
-  /// Method to get customers with birthdays in current month
-  /// Useful for birthday reminders
-  ///
-  /// Returns: Future<List<Customer>> containing customers with birthdays this month
-  Future<List<Customer>> getCustomersWithBirthdaysThisMonth() async {
-    try {
-      final now = DateTime.now();
-      final month = now.month.toString().padLeft(2, '0');
-      return await customerDao.findCustomersByBirthMonth(month);
-    } catch (e) {
-      print('Error getting customers with birthdays this month: $e');
-      return [];
-    }
-  }
-
-  /// Method to get customers with birthdays today
-  /// Useful for daily birthday notifications
-  ///
-  /// Returns: Future<List<Customer>> containing customers with birthday today
-  Future<List<Customer>> getCustomersWithBirthdayToday() async {
-    try {
-      final now = DateTime.now();
-      final monthDay = '${now.month.toString().padLeft(2, '0')}-${now.day.toString().padLeft(2, '0')}';
-      return await customerDao.findCustomersWithBirthdayToday(monthDay);
-    } catch (e) {
-      print('Error getting customers with birthday today: $e');
-      return [];
     }
   }
 }
