@@ -1,19 +1,13 @@
-// lib/models/customer.dart
 import 'package:floor/floor.dart';
 
 /// Customer entity class for Floor database storage
-/// Represents a customer record in the database
-///
-/// Project Requirements Addressed:
-/// * Requirement 3: Database storage using Floor SQLite
-/// * Data model for customer page implementation
-/// * Stores customer first name, last name, address, and date of birth
-/// * Implements proper database auto-increment for primary key
+/// Represents a customer record in the database:
+/// customer first name, last name, address, and date of birth
 @entity
 class Customer {
   /// Primary key for the customer record
   /// Unique identifier for each customer
-  /// Uses auto-increment to ensure unique IDs across app restarts
+  /// Uses auto-increment
   @PrimaryKey(autoGenerate: true)
   final int? id;
 
@@ -74,16 +68,9 @@ class Customer {
   }
 
   /// Getter for display title in ListView
-  /// Requirement 1: ListView displays items inserted by user
   ///
   /// Returns: Formatted title string for list display
   String get displayTitle => '$firstName $lastName';
-
-  /// Getter for display subtitle in ListView
-  /// Shows address and age information in compact format
-  ///
-  /// Returns: Formatted subtitle with address and birth date
-  String get displaySubtitle => '$address • Born: $dateOfBirth';
 
   /// Getter for full name
   /// Used in various display contexts
@@ -102,7 +89,6 @@ class Customer {
           'Date of Birth: $dateOfBirth';
 
   /// Creates a copy of this Customer with modified fields
-  /// Useful for updates and data manipulation in forms
   ///
   /// [id] - New ID (optional, defaults to current)
   /// [firstName] - New first name (optional, defaults to current)
@@ -138,7 +124,7 @@ class Customer {
         dateOfBirth.isNotEmpty;
   }
 
-  /// Creates a Customer from a Map (useful for JSON/database conversion)
+  /// Creates a Customer from a Map
   /// Handles null ID values for new records
   ///
   /// [map] - Map containing customer data
@@ -154,7 +140,7 @@ class Customer {
     );
   }
 
-  /// Converts Customer to Map (useful for JSON/database conversion)
+  /// Converts Customer to Map
   /// Excludes null ID values for database insertion
   ///
   /// Returns: Map representation of the customer
@@ -174,37 +160,12 @@ class Customer {
     return map;
   }
 
-  /// String representation of the Customer for debugging
-  /// Useful for console output and logging
+  /// String representation of the Customer
   ///
-  /// Returns: Human-readable string representation
+  /// Returns: string representation
   @override
   String toString() {
     return 'Customer{id: ${id ?? 'null'}, firstName: $firstName, lastName: $lastName, '
         'address: $address, dateOfBirth: $dateOfBirth}';
   }
-
-  /// Equality operator for comparing Customer instances
-  /// Two records are equal if they have the same ID
-  /// New records (null ID) are never equal to existing records
-  ///
-  /// [other] - Object to compare with
-  ///
-  /// Returns: true if objects are equal, false otherwise
-  @override
-  bool operator ==(Object other) =>
-      identical(this, other) ||
-          other is Customer &&
-              runtimeType == other.runtimeType &&
-              id != null &&
-              other.id != null &&
-              id == other.id;
-
-  /// Hash code implementation based on ID
-  /// Required when overriding equality operator
-  /// Uses object hash for new records (null ID)
-  ///
-  /// Returns: Hash code for this instance
-  @override
-  int get hashCode => id?.hashCode ?? super.hashCode;
 }
