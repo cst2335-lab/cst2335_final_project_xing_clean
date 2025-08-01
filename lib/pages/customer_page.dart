@@ -495,7 +495,7 @@ class _CustomerPageState extends State<CustomerPage> {
               Container(
                 padding: const EdgeInsets.all(12),
                 decoration: BoxDecoration(
-                  color: Colors.blue.withOpacity(0.1),
+                  color: Colors.blue,
                   borderRadius: BorderRadius.circular(8),
                 ),
                 child: Text(
@@ -591,7 +591,7 @@ class _CustomerPageState extends State<CustomerPage> {
                 Container(
                   padding: const EdgeInsets.all(12),
                   decoration: BoxDecoration(
-                    color: Colors.grey.withOpacity(0.1),
+                    color: Colors.grey,
                     borderRadius: BorderRadius.circular(8),
                   ),
                   child: Column(
@@ -858,7 +858,7 @@ class _CustomerPageState extends State<CustomerPage> {
                 return Card(
                   margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
                   elevation: isSelected ? 4 : 2,
-                  color: isSelected ? Colors.blue.withOpacity(0.1) : null,
+                  color: isSelected ? Colors.blue : null,
                   child: ListTile(
                     title: Text(
                       customer.fullName,
@@ -1066,9 +1066,7 @@ class _CustomerPageState extends State<CustomerPage> {
     return Container(
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
-        color: color.withOpacity(0.1),
         borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: color.withOpacity(0.3)),
       ),
       child: Row(
         children: [
