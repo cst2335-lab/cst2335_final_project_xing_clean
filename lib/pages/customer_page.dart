@@ -65,24 +65,24 @@ class _CustomerPageState extends State<CustomerPage> {
   /// from encrypted shared preferences for user convenience
   Future<void> _initializeData() async {
     try {
-      print('🔧 Step 1: Initializing EncryptedSharedPreferences...');
+      print('Step 1: Initializing EncryptedSharedPreferences...');
       _encryptedPrefs = EncryptedSharedPreferences();
 
-      print('🔧 Step 2: Creating customer database connection...');
+      print('Step 2: Creating customer database connection...');
       _database = await $FloorCustomerDatabase
           .databaseBuilder('customers_database.db')
           .build();
 
-      print('🔧 Step 3: Loading form data from preferences...');
+      print('Step 3: Loading form data from preferences...');
       await _loadFormData();
 
-      print('🔧 Step 4: Loading customers from database...');
+      print('Step 4: Loading customers from database...');
       await _loadCustomers();
 
-      print('✅ Customer database initialization completed successfully');
+      print('Customer database initialization completed successfully');
     } catch (e, stackTrace) {
-      print('❌ Error during customer initialization: $e');
-      print('📍 Stack trace: $stackTrace');
+      print('Error during customer initialization: $e');
+      print('Stack trace: $stackTrace');
 
       // Show error to user
       if (mounted) {
@@ -111,7 +111,7 @@ class _CustomerPageState extends State<CustomerPage> {
   ///
   /// [english] Text to show for English
   /// [french] Text to show for French
-  /// Returns: Appropriate text based on _isFrench flag
+  /// Returns: Appropriate text based on _isFrench
   String _getText(String english, String french) {
     return _isFrench ? french : english;
   }
@@ -137,7 +137,7 @@ class _CustomerPageState extends State<CustomerPage> {
         });
       }
     } catch (e) {
-      print('⚠️ Warning: Could not load customer form data: $e');
+      print('Warning: Could not load customer form data: $e');
     }
   }
 
@@ -154,10 +154,10 @@ class _CustomerPageState extends State<CustomerPage> {
             _customers = records;
           });
         }
-        print('✅ Loaded ${records.length} customers from database');
+        print('Loaded ${records.length} customers from database');
       }
     } catch (e) {
-      print('❌ Error loading customers: $e');
+      print('Error loading customers: $e');
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
@@ -203,17 +203,13 @@ class _CustomerPageState extends State<CustomerPage> {
         dateOfBirth: _dateOfBirthController.text,
       );
 
-      // Save to database
       await _database!.customerDao.insertCustomer(newCustomer);
 
-      // Save form data to preferences
       await _saveFormData();
 
-      // Reload records and clear form
       await _loadCustomers();
       _clearForm();
 
-      // Show success message
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
@@ -226,7 +222,7 @@ class _CustomerPageState extends State<CustomerPage> {
         );
       }
     } catch (e) {
-      print('❌ Error adding customer: $e');
+      print('Error adding customer: $e');
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
@@ -251,10 +247,8 @@ class _CustomerPageState extends State<CustomerPage> {
     }
 
     try {
-      // Store the editing customer ID before operations
       final editingCustomerId = _editingCustomer!.id;
 
-      // Create updated customer
       final updatedCustomer = _editingCustomer!.copyWith(
         firstName: _firstNameController.text.trim(),
         lastName: _lastNameController.text.trim(),
@@ -262,23 +256,18 @@ class _CustomerPageState extends State<CustomerPage> {
         dateOfBirth: _dateOfBirthController.text,
       );
 
-      // Update in database
       await _database!.customerDao.updateCustomer(updatedCustomer);
 
-      // Reload customers list
       await _loadCustomers();
 
-      // Update selected customer if it's the one being edited
       if (_selectedCustomer?.id == editingCustomerId) {
         setState(() {
           _selectedCustomer = updatedCustomer;
         });
       }
 
-      // Exit edit mode
       _exitEditMode();
 
-      // Show success message only if widget is still mounted
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
@@ -292,10 +281,9 @@ class _CustomerPageState extends State<CustomerPage> {
         );
       }
     } catch (e, stack) {
-      print('❌ Error updating customer: $e');
-      print('📌 Stack trace: $stack');
+      print('Error updating customer: $e');
+      print('Stack trace: $stack');
 
-      // Show error message only if widget is still mounted
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
@@ -321,9 +309,9 @@ class _CustomerPageState extends State<CustomerPage> {
       await _encryptedPrefs?.setString('last_customer_last_name', _lastNameController.text);
       await _encryptedPrefs?.setString('last_customer_address', _addressController.text);
       await _encryptedPrefs?.setString('last_customer_dob', _dateOfBirthController.text);
-      print('✅ Customer form data saved to encrypted preferences');
+      print('Customer form data saved to encrypted preferences');
     } catch (e) {
-      print('⚠️ Warning: Could not save customer form data: $e');
+      print('Warning: Could not save customer form data: $e');
     }
   }
 
@@ -418,7 +406,7 @@ class _CustomerPageState extends State<CustomerPage> {
   /// [customer] Customer to delete
   /// Shows confirmation dialog before deletion
   Future<void> _deleteCustomer(Customer customer) async {
-    // Show confirmation dialog
+
     final bool? confirmed = await showDialog<bool>(
       context: context,
       builder: (BuildContext context) {
@@ -448,14 +436,12 @@ class _CustomerPageState extends State<CustomerPage> {
         await _database!.customerDao.deleteCustomer(customer);
         await _loadCustomers();
 
-        // Clear selection if deleted customer was selected
         if (_selectedCustomer?.id == customer.id) {
           setState(() {
             _selectedCustomer = null;
           });
         }
 
-        // Exit edit mode if deleting currently edited customer
         if (_editingCustomer?.id == customer.id) {
           _exitEditMode();
         }
@@ -472,7 +458,7 @@ class _CustomerPageState extends State<CustomerPage> {
           );
         }
       } catch (e) {
-        print('❌ Error deleting customer: $e');
+        print('Error deleting customer: $e');
         if (mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
             SnackBar(
@@ -506,7 +492,6 @@ class _CustomerPageState extends State<CustomerPage> {
                   'Sélectionnez votre langue préférée:'
               )),
               const SizedBox(height: 16),
-              // Show current language
               Container(
                 padding: const EdgeInsets.all(12),
                 decoration: BoxDecoration(
@@ -514,7 +499,7 @@ class _CustomerPageState extends State<CustomerPage> {
                   borderRadius: BorderRadius.circular(8),
                 ),
                 child: Text(
-                  _getText('Current: English 🇬🇧', 'Actuel: Français 🇫🇷'),
+                  _getText('Current: English', 'Actuel: Français'),
                   style: const TextStyle(fontWeight: FontWeight.bold),
                 ),
               ),
@@ -534,7 +519,7 @@ class _CustomerPageState extends State<CustomerPage> {
                   ),
                 );
               },
-              child: const Text('🇬🇧 English'),
+              child: const Text('English'),
             ),
             TextButton(
               onPressed: () {
@@ -544,99 +529,25 @@ class _CustomerPageState extends State<CustomerPage> {
                 });
                 ScaffoldMessenger.of(context).showSnackBar(
                   const SnackBar(
-                    content: Text('🇫🇷 Passé au français'),
+                    content: Text('Passé au français'),
                     duration: Duration(seconds: 2),
                   ),
                 );
               },
-              child: const Text('🇫🇷 Français'),
+              child: const Text('Français'),
             ),
           ],
         );
       },
     );
   }
-
-  /// Show help dialog with application usage instructions
-  ///
-  /// Requirement 7: ActionBar with ActionItems showing usage instructions
-  void _showHelpDialog() {
-    showDialog(
-      context: context,
-      builder: (BuildContext context) {
-        return AlertDialog(
-          title: Text(_getText('Customer Management Help', 'Aide Gestion des Clients')),
-          content: SingleChildScrollView(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                Text(
-                  _getText('How to use this interface:', 'Comment utiliser cette interface:'),
-                  style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
-                ),
-                const SizedBox(height: 12),
-                Text('1. ${_getText('Fill in customer details in the form', 'Remplissez les détails du client dans le formulaire')}'),
-                const SizedBox(height: 8),
-                Text('2. ${_getText('Click "Add Customer" to save new customers', 'Cliquez sur "Ajouter Client" pour enregistrer de nouveaux clients')}'),
-                const SizedBox(height: 8),
-                Text('3. ${_getText('Tap any customer from the list to view details', 'Appuyez sur n\'importe quel client de la liste pour voir les détails')}'),
-                const SizedBox(height: 8),
-                Text('4. ${_getText('Use "Edit" button to modify customer information', 'Utilisez le bouton "Modifier" pour modifier les informations client')}'),
-                const SizedBox(height: 8),
-                Text('5. ${_getText('Use "Delete" button to remove customers', 'Utilisez le bouton "Supprimer" pour retirer les clients')}'),
-                const SizedBox(height: 8),
-                Text('6. ${_getText('Use "Copy Previous" to copy last customer\'s data', 'Utilisez "Copier Précédent" pour copier les données du dernier client')}'),
-                const SizedBox(height: 16),
-
-                // Language differences section
-                Container(
-                  padding: const EdgeInsets.all(12),
-                  decoration: BoxDecoration(
-                    color: Colors.blue.withOpacity(0.1),
-                    borderRadius: BorderRadius.circular(8),
-                  ),
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(
-                        _getText('🌍 Language Features:', '🌍 Fonctionnalités linguistiques:'),
-                        style: const TextStyle(fontWeight: FontWeight.bold),
-                      ),
-                      const SizedBox(height: 8),
-                      Text(_getText(
-                          '• English: Full interface in English',
-                          '• Français: Interface complète en français'
-                      )),
-                      const SizedBox(height: 4),
-                      Text(_getText(
-                          '• Use the 🌐 button to switch languages',
-                          '• Utilisez le bouton 🌐 pour changer de langue'
-                      )),
-                    ],
-                  ),
-                ),
-              ],
-            ),
-          ),
-          actions: [
-            TextButton(
-              onPressed: () => Navigator.of(context).pop(),
-              child: Text(_getText('Got it!', 'Compris!')),
-            ),
-          ],
-        );
-      },
-    );
-  }
-
   /// Select date using date picker
   ///
   /// Opens native date picker and updates date of birth field
   Future<void> _selectDate() async {
     final DateTime? picked = await showDatePicker(
       context: context,
-      initialDate: DateTime.now().subtract(const Duration(days: 6570)), // ~18 years ago
+      initialDate: DateTime.now(),
       firstDate: DateTime(1900), // Reasonable birth date range
       lastDate: DateTime.now(), // Can't be born in the future
     );
@@ -666,7 +577,6 @@ class _CustomerPageState extends State<CustomerPage> {
         return;
       }
 
-      // Show confirmation dialog
       final bool? confirmed = await showDialog<bool>(
         context: context,
         builder: (BuildContext context) {
@@ -725,7 +635,7 @@ class _CustomerPageState extends State<CustomerPage> {
         );
       }
     } catch (e) {
-      print('❌ Error copying previous customer: $e');
+      print('Error copying previous customer: $e');
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
           content: Text(_getText('Error copying previous customer', 'Erreur lors de la copie du client précédent')),
@@ -738,7 +648,6 @@ class _CustomerPageState extends State<CustomerPage> {
   /// Build responsive layout based on screen size
   ///
   /// Returns appropriate widget based on device orientation and size
-  /// Requirement 4: Master-detail pattern for tablet vs phone layouts
   Widget _buildResponsiveLayout() {
     final size = MediaQuery.of(context).size;
     final isTablet = size.width > 720 && size.width > size.height;
@@ -758,7 +667,6 @@ class _CustomerPageState extends State<CustomerPage> {
         ],
       );
     } else {
-      // Phone layout: Full screen list/form or details
       if (_selectedCustomer != null && !_isEditMode) {
         return _buildDetailsPanel();
       } else {
@@ -774,7 +682,6 @@ class _CustomerPageState extends State<CustomerPage> {
     return SingleChildScrollView(
       child: Column(
         children: [
-          // Add/Edit Customer Form
           Padding(
             padding: const EdgeInsets.all(16),
             child: Column(
@@ -914,7 +821,6 @@ class _CustomerPageState extends State<CustomerPage> {
             ),
           ),
 
-          // Customers List - Dynamic height to prevent overflow in landscape
           SizedBox(
             height: MediaQuery.of(context).size.height > 500
                 ? MediaQuery.of(context).size.height - 450
@@ -1053,7 +959,7 @@ class _CustomerPageState extends State<CustomerPage> {
             ),
           const SizedBox(height: 16),
 
-          // Customer avatar and name
+
           Center(
             child: Column(
               children: [
@@ -1070,7 +976,6 @@ class _CustomerPageState extends State<CustomerPage> {
           ),
           const SizedBox(height: 16),
 
-          // Customer info cards
           _buildDetailCard(
             icon: Icons.tag,
             title: _getText('Customer ID', 'ID Client'),
@@ -1112,7 +1017,6 @@ class _CustomerPageState extends State<CustomerPage> {
 
           const SizedBox(height: 24),
 
-          // Action buttons
           Row(
             children: [
               Expanded(
@@ -1210,11 +1114,6 @@ class _CustomerPageState extends State<CustomerPage> {
             icon: Icon(_isFrench ? Icons.language : Icons.translate),
             onPressed: _switchLanguage,
             tooltip: _getText('Switch Language', 'Changer de langue'),
-          ),
-          IconButton(
-            icon: const Icon(Icons.help_outline),
-            onPressed: _showHelpDialog,
-            tooltip: _getText('Help', 'Aide'),
           ),
         ],
       ),
