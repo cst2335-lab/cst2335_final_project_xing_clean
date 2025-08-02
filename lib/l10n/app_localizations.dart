@@ -1,666 +1,254 @@
 // lib/l10n/app_localizations.dart
+import 'dart:convert';
+import 'dart:ui';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 
-/**
- * Application localization class for multi-language support
- * Requirement 8: Support for at least 1 other language
- *
- * Implements American English vs British English differences to demonstrate
- * proper localization implementation as required by the project specifications.
- */
+/// AppLocalizations class for handling multi-language support
+/// Requirement 8: Support for at least 1 other language (American vs British English)
+///
+/// Implementation follows Flutter internationalization best practices
+/// as specified in the course requirements using JSON translation files
 class AppLocalizations {
-  /**
-   * Get localization instance from context
-   *
-   * @param context - Build context to extract locale from
-   * @return AppLocalizations instance or null if not found
-   */
+  /// Constructor that initializes the locale and empty strings map
+  AppLocalizations(this.locale) {
+    _localizedStrings = <String, String>{};
+  }
+
+  /// Static method to get AppLocalizations from context
+  /// Standard pattern for accessing localized strings throughout the app
   static AppLocalizations? of(BuildContext context) {
     return Localizations.of<AppLocalizations>(context, AppLocalizations);
   }
 
-  /**
-   * Delegate for Flutter's localization system
-   * Handles loading and creation of localization instances
-   */
+  /// Localization delegate for Flutter's internationalization system
+  /// This is required by MaterialApp's localizationsDelegates
   static const LocalizationsDelegate<AppLocalizations> delegate =
   _AppLocalizationsDelegate();
 
-  /**
-   * List of supported locales for this application
-   * Supports both American and British English variants
-   */
-  static const List<Locale> supportedLocales = [
-    Locale('en', 'US'),  // American English
-    Locale('en', 'GB'),  // British English
-  ];
-
-  /**
-   * Current locale for this localization instance
-   */
+  /// Current locale for this AppLocalizations instance
   final Locale locale;
 
-  /**
-   * Constructor for AppLocalizations
-   *
-   * @param locale - Locale to use for this instance
-   */
-  AppLocalizations(this.locale);
+  /// Map storing all localized strings loaded from JSON files
+  late Map<String, String> _localizedStrings;
 
-  /**
-   * Check if current locale is British English
-   * Helper method for conditional text display
-   */
+  /// Load translation strings from JSON file based on current locale
+  /// This method is called automatically by the LocalizationsDelegate
+  Future<void> load() async {
+    // Load JSON file based on locale (e.g., 'en.json' or 'en_GB.json')
+    String jsonFileName = locale.countryCode != null && locale.countryCode!.isNotEmpty
+        ? '${locale.languageCode}_${locale.countryCode}.json'
+        : '${locale.languageCode}.json';
+
+    try {
+      // Load the JSON file from assets/translations/
+      String jsonString = await rootBundle.loadString('assets/translations/$jsonFileName');
+
+      // Parse JSON and convert to string map
+      Map<String, dynamic> jsonMap = json.decode(jsonString);
+
+      _localizedStrings = jsonMap.map((key, value) {
+        return MapEntry(key, value.toString());
+      });
+
+      print('✅ Loaded translations from: $jsonFileName');
+      print('✅ Loaded ${_localizedStrings.length} translation keys');
+
+    } catch (e) {
+      print('❌ Error loading translation file $jsonFileName: $e');
+
+      // Fallback: try loading basic language file if country-specific fails
+      if (locale.countryCode != null && locale.countryCode!.isNotEmpty) {
+        try {
+          String fallbackFileName = '${locale.languageCode}.json';
+          String jsonString = await rootBundle.loadString('assets/translations/$fallbackFileName');
+          Map<String, dynamic> jsonMap = json.decode(jsonString);
+
+          _localizedStrings = jsonMap.map((key, value) {
+            return MapEntry(key, value.toString());
+          });
+
+          print('✅ Loaded fallback translations from: $fallbackFileName');
+
+        } catch (fallbackError) {
+          print('❌ Error loading fallback translation file: $fallbackError');
+
+          // Ultimate fallback: provide English defaults
+          _localizedStrings = {
+            'app_title': 'Car Management System',
+            'sales_management': 'Sales Management',
+            'color': 'Color',
+            'center': 'Center',
+            'favorite': 'Favorite',
+            'organize': 'Organize',
+            'license': 'License',
+          };
+        }
+      }
+    }
+  }
+
+  /// Translate a key to localized string
+  /// Returns the translated string or the key itself if not found
+  ///
+  /// [key] - The translation key to look up
+  /// Returns: Translated string or null if key not found
+  String? translate(String key) {
+    final translation = _localizedStrings[key];
+    if (translation == null) {
+      print('⚠️ Translation key not found: $key');
+    }
+    return translation;
+  }
+
+  /// Get translated string with fallback to key if not found
+  /// This is a convenience method that never returns null
+  ///
+  /// [key] - The translation key to look up
+  /// Returns: Translated string or the key itself as fallback
+  String getTranslatedValue(String key) {
+    return translate(key) ?? key;
+  }
+
+  /// Helper method for getting translated text with null safety
+  /// Provides a default value if translation is not found
+  ///
+  /// [key] - The translation key to look up
+  /// [defaultValue] - Default value to use if key not found
+  /// Returns: Translated string or default value
+  String getTranslation(String key, String defaultValue) {
+    return translate(key) ?? defaultValue;
+  }
+
+  /// Delete record - method name matching course materials
+  /// Provides backwards compatibility with existing code patterns
+  String? deleteRecord(String key) {
+    return translate(key);
+  }
+
+  // === CONVENIENCE GETTERS FOR COMMON STRINGS ===
+  // These match the JSON keys we created
+
+  /// Application title
+  String get appTitle => getTranslatedValue('app_title');
+
+  /// Sales management title
+  String get salesManagement => getTranslatedValue('sales_management');
+
+  /// Add new record form title
+  String get addNewRecord => getTranslatedValue('add_new_record');
+
+  /// Customer ID label
+  String get customerID => getTranslatedValue('customer_id');
+
+  /// Car ID label
+  String get carID => getTranslatedValue('car_id');
+
+  /// Dealership ID label
+  String get dealershipID => getTranslatedValue('dealership_id');
+
+  /// Purchase date label
+  String get purchaseDate => getTranslatedValue('purchase_date');
+
+  /// Add record button
+  String get addRecord => getTranslatedValue('add_record');
+
+  /// Delete record button
+  String get deleteRecordButton => getTranslatedValue('delete_record');
+
+  /// Validation error title
+  String get validationError => getTranslatedValue('validation_error');
+
+  /// Invalid customer ID message
+  String get invalidCustomerID => getTranslatedValue('invalid_customer_id');
+
+  /// Invalid car ID message
+  String get invalidCarID => getTranslatedValue('invalid_car_id');
+
+  /// Invalid dealership ID message
+  String get invalidDealershipID => getTranslatedValue('invalid_dealership_id');
+
+  /// Record added success message
+  String get recordAdded => getTranslatedValue('record_added');
+
+  /// Record deleted success message
+  String get recordDeleted => getTranslatedValue('record_deleted');
+
+  /// No records message
+  String get noRecords => getTranslatedValue('no_records');
+
+  /// Select record instruction
+  String get selectRecord => getTranslatedValue('select_record');
+
+  // === LANGUAGE DIFFERENCE DEMONSTRATION ===
+  // These demonstrate American vs British English differences
+
+  /// Color/Colour - primary example of spelling difference
+  String get color => getTranslatedValue('color');
+
+  /// Center/Centre - another common difference
+  String get center => getTranslatedValue('center');
+
+  /// Favorite/Favourite - demonstrates -ite vs -ite endings
+  String get favorite => getTranslatedValue('favorite');
+
+  /// Organize/Organise - demonstrates -ize vs -ise endings
+  String get organize => getTranslatedValue('organize');
+
+  /// License/Licence - demonstrates noun vs verb differences
+  String get license => getTranslatedValue('license');
+
+  /// Get current language variant name for display
+  String get languageVariant {
+    return locale.countryCode == 'GB' ? 'British English' : 'American English';
+  }
+
+  /// Check if current locale is British English
   bool get isBritish => locale.countryCode == 'GB';
 
-  // === APPLICATION TITLES ===
+  /// Check if current locale is American English
+  bool get isAmerican => locale.countryCode == 'US';
 
-  /**
-   * Main application title
-   */
-  String get appTitle => 'Car Management System';
+  /// Get all available translation keys (for debugging)
+  List<String> get availableKeys => _localizedStrings.keys.toList();
 
-  /**
-   * Sales management module title
-   */
-  String get salesManagement => 'Sales Management';
-
-  /**
-   * Customer management module title
-   */
-  String get customerManagement => 'Customer Management';
-
-  // === FORM FIELDS ===
-
-  /**
-   * Customer ID field label
-   */
-  String get customerID => 'Customer ID';
-
-  /**
-   * Car ID field label
-   */
-  String get carID => 'Car ID';
-
-  /**
-   * Dealership ID field label
-   */
-  String get dealershipID => 'Dealership ID';
-
-  /**
-   * Purchase date field label
-   */
-  String get purchaseDate => 'Purchase Date';
-
-  // === BRITISH VS AMERICAN SPELLING DIFFERENCES ===
-
-  /**
-   * Color vs Colour
-   * Demonstrates British vs American spelling difference
-   */
-  String get colorColour => isBritish ? 'Colour' : 'Color';
-
-  /**
-   * Organization vs Organisation
-   * Another common spelling difference
-   */
-  String get organizationOrganisation => isBritish ? 'Organisation' : 'Organization';
-
-  /**
-   * Center vs Centre
-   * British vs American spelling for center
-   */
-  String get centerCentre => isBritish ? 'Centre' : 'Center';
-
-  /**
-   * Customize vs Customise
-   * Different verb endings
-   */
-  String get customizeCustomise => isBritish ? 'Customise' : 'Customize';
-
-  /**
-   * Realize vs Realise
-   * Z vs S endings
-   */
-  String get realizeRealise => isBritish ? 'Realise' : 'Realize';
-
-  /**
-   * Analyze vs Analyse
-   * Another Z vs S difference
-   */
-  String get analyzeAnalyse => isBritish ? 'Analyse' : 'Analyze';
-
-  // === BUTTONS AND ACTIONS ===
-
-  /**
-   * Add sale record button text
-   * Slight variation between variants
-   */
-  String get addSaleRecord => isBritish ? 'Add Sale Record' : 'Add Sales Record';
-
-  /**
-   * Delete record button text
-   */
-  String get deleteRecord => 'Delete Record';
-
-  /**
-   * Save button text
-   */
-  String get save => 'Save';
-
-  /**
-   * Cancel button text
-   */
-  String get cancel => 'Cancel';
-
-  // === MESSAGES AND NOTIFICATIONS ===
-
-  /**
-   * Success message for adding records
-   */
-  String get recordAddedSuccessfully => 'Record added successfully';
-
-  /**
-   * Success message for deleting records
-   */
-  String get recordDeletedSuccessfully => 'Record deleted successfully';
-
-  /**
-   * Confirmation message for deletion
-   */
-  String get confirmDeletion => 'Are you sure you want to delete this record?';
-
-  /**
-   * No records message
-   */
-  String get noRecordsYet => 'No records yet';
-
-  /**
-   * Add first record instruction
-   */
-  String get addFirstRecord => 'Add your first record using the form above';
-
-  // === HELP AND INSTRUCTIONS ===
-
-  /**
-   * Help dialog title
-   */
-  String get helpInstructions => 'Instructions';
-
-  /**
-   * How to use application header
-   */
-  String get howToUse => 'How to use Sales Management:';
-
-  /**
-   * Step-by-step instructions
-   */
-  List<String> get instructionSteps => [
-    'Fill in all required fields in the form',
-    'Click "${addSaleRecord}" to create a new record',
-    'Click on any sale in the list to view details',
-    'Use the delete button to remove records',
-    'Data is automatically saved between sessions',
-    'Interface adapts to different screen sizes',
-  ];
-
-  // === DEMO TEXT FOR LANGUAGE SWITCHING ===
-
-  /**
-   * Demo text showing spelling differences
-   * Used to demonstrate language switching functionality
-   */
-  String get languageDemoText => isBritish
-      ? 'This application uses British spelling: ${colorColour}, ${organizationOrganisation}, ${centerCentre}, ${customizeCustomise}'
-      : 'This application uses American spelling: ${colorColour}, ${organizationOrganisation}, ${centerCentre}, ${customizeCustomise}';
-
-  /**
-   * Language variant indicator
-   */
-  String get currentLanguageVariant => isBritish ? 'British English' : 'American English';
+  /// Get translation count (for debugging)
+  int get translationCount => _localizedStrings.length;
 }
 
-/**
- * Localization delegate implementation
- * Handles the loading and creation of AppLocalizations instances
- */
+/// LocalizationsDelegate implementation for AppLocalizations
+/// This class is required by Flutter's localization system
+/// It handles loading and caching of AppLocalizations instances
 class _AppLocalizationsDelegate extends LocalizationsDelegate<AppLocalizations> {
+  /// Constructor - marked as const for performance
   const _AppLocalizationsDelegate();
 
-  /**
-   * Check if the given locale is supported
-   *
-   * @param locale - Locale to check support for
-   * @return true if locale is supported, false otherwise
-   */
+  /// Check if the given locale is supported by this delegate
+  /// Currently supports English variants (en_US, en_GB, en)
   @override
   bool isSupported(Locale locale) {
-    return ['en'].contains(locale.languageCode);
+    // Support English language with US and GB variants
+    return locale.languageCode == 'en';
   }
 
-  /**
-   * Load localization for the given locale
-   *
-   * @param locale - Locale to load localization for
-   * @return Future containing AppLocalizations instance
-   */
+  /// Load and initialize AppLocalizations for the given locale
+  /// This method is called by Flutter when the locale changes
   @override
   Future<AppLocalizations> load(Locale locale) async {
-    return AppLocalizations(locale);
+    print('🌐 Loading AppLocalizations for locale: ${locale.toString()}');
+
+    // Create AppLocalizations instance
+    AppLocalizations localizations = AppLocalizations(locale);
+
+    // Load translations from JSON file
+    await localizations.load();
+
+    print('✅ AppLocalizations loaded successfully');
+    return localizations;
   }
 
-  /**
-   * Determine if delegate should reload
-   *
-   * @param old - Previous delegate instance
-   * @return false as we don't need to reload
-   */
+  /// Determine whether the delegate should reload
+  /// Returns false since our translations don't change during runtime
   @override
   bool shouldReload(_AppLocalizationsDelegate old) => false;
-}
-
-// =============================================================================
-// TESTING AND VERIFICATION WIDGET
-// =============================================================================
-
-/**
- * Language testing widget to demonstrate and verify multi-language support
- * This widget shows side-by-side comparison of American vs British English
- * and provides interactive language switching
- */
-class LanguageTestingWidget extends StatefulWidget {
-  @override
-  _LanguageTestingWidgetState createState() => _LanguageTestingWidgetState();
-}
-
-class _LanguageTestingWidgetState extends State<LanguageTestingWidget> {
-  // Current selected locale for testing
-  Locale _currentLocale = Locale('en', 'US');
-
-  @override
-  Widget build(BuildContext context) {
-    return Scaffold(
-      appBar: AppBar(
-        title: Text('Multi-Language Testing'),
-        backgroundColor: Colors.purple,
-        actions: [
-          // Language switch button
-          IconButton(
-            icon: Icon(Icons.language),
-            onPressed: _showLanguageSelector,
-            tooltip: 'Switch Language',
-          ),
-        ],
-      ),
-      body: SingleChildScrollView(
-        padding: EdgeInsets.all(16),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            // Current language indicator
-            _buildLanguageIndicator(),
-
-            SizedBox(height: 24),
-
-            // Spelling differences demonstration
-            _buildSpellingDifferences(),
-
-            SizedBox(height: 24),
-
-            // Interactive testing section
-            _buildInteractiveTest(),
-
-            SizedBox(height: 24),
-
-            // Verification checklist
-            _buildVerificationChecklist(),
-          ],
-        ),
-      ),
-    );
-  }
-
-  /**
-   * Build language indicator showing current variant
-   */
-  Widget _buildLanguageIndicator() {
-    final localizations = AppLocalizations(_currentLocale);
-
-    return Card(
-      color: Colors.blue[50],
-      child: Padding(
-        padding: EdgeInsets.all(16),
-        child: Row(
-          children: [
-            Icon(
-              Icons.language,
-              color: Colors.blue,
-              size: 32,
-            ),
-            SizedBox(width: 16),
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    'Current Language Variant',
-                    style: TextStyle(
-                      fontSize: 18,
-                      fontWeight: FontWeight.bold,
-                      color: Colors.blue[800],
-                    ),
-                  ),
-                  SizedBox(height: 4),
-                  Text(
-                    localizations.currentLanguageVariant,
-                    style: TextStyle(
-                      fontSize: 16,
-                      color: Colors.blue[600],
-                    ),
-                  ),
-                ],
-              ),
-            ),
-            ElevatedButton(
-              onPressed: _switchLanguage,
-              child: Text('Switch'),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-
-  /**
-   * Build spelling differences demonstration
-   */
-  Widget _buildSpellingDifferences() {
-    final localizations = AppLocalizations(_currentLocale);
-
-    return Card(
-      child: Padding(
-        padding: EdgeInsets.all(16),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Text(
-              'Spelling Differences Demo',
-              style: TextStyle(
-                fontSize: 18,
-                fontWeight: FontWeight.bold,
-              ),
-            ),
-            SizedBox(height: 16),
-
-            // Word comparison grid
-            _buildWordComparison('Color/Colour', localizations.colorColour),
-            _buildWordComparison('Organization/Organisation', localizations.organizationOrganisation),
-            _buildWordComparison('Center/Centre', localizations.centerCentre),
-            _buildWordComparison('Customize/Customise', localizations.customizeCustomise),
-            _buildWordComparison('Realize/Realise', localizations.realizeRealise),
-            _buildWordComparison('Analyze/Analyse', localizations.analyzeAnalyse),
-
-            SizedBox(height: 16),
-
-            // Demo sentence
-            Container(
-              padding: EdgeInsets.all(12),
-              decoration: BoxDecoration(
-                color: Colors.grey[100],
-                borderRadius: BorderRadius.circular(8),
-              ),
-              child: Text(
-                localizations.languageDemoText,
-                style: TextStyle(
-                  fontStyle: FontStyle.italic,
-                  fontSize: 14,
-                ),
-              ),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-
-  /**
-   * Build word comparison row
-   */
-  Widget _buildWordComparison(String label, String currentWord) {
-    return Padding(
-      padding: EdgeInsets.symmetric(vertical: 4),
-      child: Row(
-        children: [
-          SizedBox(
-            width: 160,
-            child: Text(
-              label,
-              style: TextStyle(color: Colors.grey[600]),
-            ),
-          ),
-          Icon(Icons.arrow_forward, color: Colors.grey),
-          SizedBox(width: 8),
-          Container(
-            padding: EdgeInsets.symmetric(horizontal: 12, vertical: 4),
-            decoration: BoxDecoration(
-              color: Colors.green[100],
-              borderRadius: BorderRadius.circular(4),
-            ),
-            child: Text(
-              currentWord,
-              style: TextStyle(
-                fontWeight: FontWeight.bold,
-                color: Colors.green[800],
-              ),
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-
-  /**
-   * Build interactive testing section
-   */
-  Widget _buildInteractiveTest() {
-    final localizations = AppLocalizations(_currentLocale);
-
-    return Card(
-      child: Padding(
-        padding: EdgeInsets.all(16),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Text(
-              'Interactive Testing',
-              style: TextStyle(
-                fontSize: 18,
-                fontWeight: FontWeight.bold,
-              ),
-            ),
-            SizedBox(height: 16),
-
-            // Test buttons with localized text
-            Wrap(
-              spacing: 8,
-              runSpacing: 8,
-              children: [
-                _buildTestButton(localizations.addSaleRecord, Colors.green),
-                _buildTestButton(localizations.deleteRecord, Colors.red),
-                _buildTestButton(localizations.save, Colors.blue),
-                _buildTestButton(localizations.cancel, Colors.grey),
-              ],
-            ),
-
-            SizedBox(height: 16),
-
-            // Test instructions
-            Text(
-              'Instructions (${localizations.currentLanguageVariant}):',
-              style: TextStyle(fontWeight: FontWeight.w600),
-            ),
-            SizedBox(height: 8),
-
-            ...localizations.instructionSteps.asMap().entries.map((entry) {
-              return Padding(
-                padding: EdgeInsets.symmetric(vertical: 2),
-                child: Text('${entry.key + 1}. ${entry.value}'),
-              );
-            }).toList(),
-          ],
-        ),
-      ),
-    );
-  }
-
-  /**
-   * Build test button
-   */
-  Widget _buildTestButton(String text, Color color) {
-    return ElevatedButton(
-      onPressed: () {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text('Clicked: $text'),
-            backgroundColor: color,
-            duration: Duration(seconds: 1),
-          ),
-        );
-      },
-      style: ElevatedButton.styleFrom(
-        backgroundColor: color,
-        foregroundColor: Colors.white,
-      ),
-      child: Text(text),
-    );
-  }
-
-  /**
-   * Build verification checklist
-   */
-  Widget _buildVerificationChecklist() {
-    return Card(
-      child: Padding(
-        padding: EdgeInsets.all(16),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Text(
-              'Verification Checklist',
-              style: TextStyle(
-                fontSize: 18,
-                fontWeight: FontWeight.bold,
-              ),
-            ),
-            SizedBox(height: 16),
-
-            _buildChecklistItem('✅ Two language variants supported (US/GB English)'),
-            _buildChecklistItem('✅ Spelling differences implemented (color/colour, etc.)'),
-            _buildChecklistItem('✅ Interactive language switching'),
-            _buildChecklistItem('✅ Localized button text'),
-            _buildChecklistItem('✅ Localized instructions'),
-            _buildChecklistItem('✅ Real-time language updates'),
-            _buildChecklistItem('✅ Proper Flutter localization implementation'),
-
-            SizedBox(height: 16),
-
-            Container(
-              padding: EdgeInsets.all(12),
-              decoration: BoxDecoration(
-                color: Colors.green[50],
-                borderRadius: BorderRadius.circular(8),
-                border: Border.all(color: Colors.green[200]!),
-              ),
-              child: Row(
-                children: [
-                  Icon(Icons.check_circle, color: Colors.green),
-                  SizedBox(width: 8),
-                  Expanded(
-                    child: Text(
-                      'Requirement 8 - Multi-language support: COMPLETED',
-                      style: TextStyle(
-                        fontWeight: FontWeight.bold,
-                        color: Colors.green[800],
-                      ),
-                    ),
-                  ),
-                ],
-              ),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-
-  /**
-   * Build checklist item
-   */
-  Widget _buildChecklistItem(String text) {
-    return Padding(
-      padding: EdgeInsets.symmetric(vertical: 4),
-      child: Text(
-        text,
-        style: TextStyle(fontSize: 14),
-      ),
-    );
-  }
-
-  /**
-   * Show language selector dialog
-   */
-  void _showLanguageSelector() {
-    showDialog(
-      context: context,
-      builder: (context) => AlertDialog(
-        title: Text('Select Language Variant'),
-        content: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            ListTile(
-              leading: Icon(Icons.flag),
-              title: Text('American English'),
-              subtitle: Text('Color, Organization, Center'),
-              onTap: () {
-                setState(() {
-                  _currentLocale = Locale('en', 'US');
-                });
-                Navigator.pop(context);
-              },
-            ),
-            ListTile(
-              leading: Icon(Icons.flag),
-              title: Text('British English'),
-              subtitle: Text('Colour, Organisation, Centre'),
-              onTap: () {
-                setState(() {
-                  _currentLocale = Locale('en', 'GB');
-                });
-                Navigator.pop(context);
-              },
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-
-  /**
-   * Switch between languages
-   */
-  void _switchLanguage() {
-    setState(() {
-      _currentLocale = _currentLocale.countryCode == 'US'
-          ? Locale('en', 'GB')
-          : Locale('en', 'US');
-    });
-
-    final newVariant = _currentLocale.countryCode == 'GB' ? 'British' : 'American';
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        content: Text('Switched to $newVariant English'),
-        backgroundColor: Colors.blue,
-      ),
-    );
-  }
 }
