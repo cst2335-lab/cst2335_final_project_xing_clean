@@ -173,100 +173,6 @@ class _$CustomerDao extends CustomerDao {
   }
 
   @override
-  Future<void> deleteCustomerById(int id) async {
-    await _queryAdapter
-        .queryNoReturn('DELETE FROM Customer WHERE id = ?1', arguments: [id]);
-  }
-
-  @override
-  Future<List<Customer>> findCustomersByFirstName(String firstName) async {
-    return _queryAdapter.queryList(
-        'SELECT * FROM Customer WHERE firstName = ?1 ORDER BY lastName ASC',
-        mapper: (Map<String, Object?> row) => Customer(
-            id: row['id'] as int?,
-            firstName: row['firstName'] as String,
-            lastName: row['lastName'] as String,
-            address: row['address'] as String,
-            dateOfBirth: row['dateOfBirth'] as String),
-        arguments: [firstName]);
-  }
-
-  @override
-  Future<List<Customer>> findCustomersByLastName(String lastName) async {
-    return _queryAdapter.queryList(
-        'SELECT * FROM Customer WHERE lastName = ?1 ORDER BY firstName ASC',
-        mapper: (Map<String, Object?> row) => Customer(
-            id: row['id'] as int?,
-            firstName: row['firstName'] as String,
-            lastName: row['lastName'] as String,
-            address: row['address'] as String,
-            dateOfBirth: row['dateOfBirth'] as String),
-        arguments: [lastName]);
-  }
-
-  @override
-  Future<List<Customer>> searchCustomersByName(String searchTerm) async {
-    return _queryAdapter.queryList(
-        'SELECT * FROM Customer WHERE firstName LIKE ?1 OR lastName LIKE ?1 ORDER BY lastName ASC, firstName ASC',
-        mapper: (Map<String, Object?> row) => Customer(id: row['id'] as int?, firstName: row['firstName'] as String, lastName: row['lastName'] as String, address: row['address'] as String, dateOfBirth: row['dateOfBirth'] as String),
-        arguments: [searchTerm]);
-  }
-
-  @override
-  Future<List<Customer>> findCustomersByAddress(String address) async {
-    return _queryAdapter.queryList(
-        'SELECT * FROM Customer WHERE address LIKE ?1 ORDER BY lastName ASC',
-        mapper: (Map<String, Object?> row) => Customer(
-            id: row['id'] as int?,
-            firstName: row['firstName'] as String,
-            lastName: row['lastName'] as String,
-            address: row['address'] as String,
-            dateOfBirth: row['dateOfBirth'] as String),
-        arguments: [address]);
-  }
-
-  @override
-  Future<List<Customer>> findCustomersByDateOfBirth(String dateOfBirth) async {
-    return _queryAdapter.queryList(
-        'SELECT * FROM Customer WHERE dateOfBirth = ?1 ORDER BY lastName ASC',
-        mapper: (Map<String, Object?> row) => Customer(
-            id: row['id'] as int?,
-            firstName: row['firstName'] as String,
-            lastName: row['lastName'] as String,
-            address: row['address'] as String,
-            dateOfBirth: row['dateOfBirth'] as String),
-        arguments: [dateOfBirth]);
-  }
-
-  @override
-  Future<int?> countCustomers() async {
-    return _queryAdapter.query('SELECT COUNT(*) FROM Customer',
-        mapper: (Map<String, Object?> row) => row.values.first as int);
-  }
-
-  @override
-  Future<List<Customer>> findCustomersByAgeRange(
-    String startYear,
-    String endYear,
-  ) async {
-    return _queryAdapter.queryList(
-        'SELECT * FROM Customer WHERE substr(dateOfBirth, 1, 4) >= ?1 AND substr(dateOfBirth, 1, 4) <= ?2 ORDER BY dateOfBirth DESC',
-        mapper: (Map<String, Object?> row) => Customer(id: row['id'] as int?, firstName: row['firstName'] as String, lastName: row['lastName'] as String, address: row['address'] as String, dateOfBirth: row['dateOfBirth'] as String),
-        arguments: [startYear, endYear]);
-  }
-
-  @override
-  Future<List<Customer>> findCustomersByFullName(
-    String firstName,
-    String lastName,
-  ) async {
-    return _queryAdapter.queryList(
-        'SELECT * FROM Customer WHERE firstName = ?1 AND lastName = ?2 ORDER BY id DESC',
-        mapper: (Map<String, Object?> row) => Customer(id: row['id'] as int?, firstName: row['firstName'] as String, lastName: row['lastName'] as String, address: row['address'] as String, dateOfBirth: row['dateOfBirth'] as String),
-        arguments: [firstName, lastName]);
-  }
-
-  @override
   Future<Customer?> getLatestCustomer() async {
     return _queryAdapter.query(
         'SELECT * FROM Customer ORDER BY id DESC LIMIT 1',
@@ -276,22 +182,6 @@ class _$CustomerDao extends CustomerDao {
             lastName: row['lastName'] as String,
             address: row['address'] as String,
             dateOfBirth: row['dateOfBirth'] as String));
-  }
-
-  @override
-  Future<List<Customer>> findCustomersByBirthMonth(String month) async {
-    return _queryAdapter.queryList(
-        'SELECT * FROM Customer WHERE substr(dateOfBirth, 6, 2) = ?1 ORDER BY substr(dateOfBirth, 9, 2) ASC',
-        mapper: (Map<String, Object?> row) => Customer(id: row['id'] as int?, firstName: row['firstName'] as String, lastName: row['lastName'] as String, address: row['address'] as String, dateOfBirth: row['dateOfBirth'] as String),
-        arguments: [month]);
-  }
-
-  @override
-  Future<List<Customer>> findCustomersWithBirthdayToday(String monthDay) async {
-    return _queryAdapter.queryList(
-        'SELECT * FROM Customer WHERE substr(dateOfBirth, 6, 5) = ?1 ORDER BY lastName ASC',
-        mapper: (Map<String, Object?> row) => Customer(id: row['id'] as int?, firstName: row['firstName'] as String, lastName: row['lastName'] as String, address: row['address'] as String, dateOfBirth: row['dateOfBirth'] as String),
-        arguments: [monthDay]);
   }
 
   @override

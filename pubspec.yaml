@@ -42,6 +42,8 @@ dependencies:
   # Floor SQLite ORM for local data storage (Requirement 3)
   floor: ^1.5.0
   sqflite: ^2.3.3
+  sqflite_common_ffi: ^2.3.1  # Windows/Desktop 支持 - 移到这里
+  path: ^1.9.0  # 路径处理 - 移到这里
 
   # === DATA PERSISTENCE DEPENDENCIES ===
   # For simple key-value storage
@@ -51,7 +53,7 @@ dependencies:
 
   # === DATE AND TIME UTILITIES ===
   # For date formatting and manipulation in sales records
-  intl: 0.19.0
+  intl: 0.20.2
 
 
 dev_dependencies:
