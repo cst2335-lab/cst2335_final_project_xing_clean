@@ -37,11 +37,26 @@ class _FlightsPageState extends State<FlightsPage> {
   final encryptedPrefs = EncryptedSharedPreferences();
   final FlightDao flightDao = FlightDaoImpl();
 
-  int? selectedFlightIndex;
+  /// List of flights loaded from database
   List<Flight> flights = [];
+
+  /// Currently selected flight for details view
+  Flight? _selectedFlight;
+
+  /// Edit mode flag - true when editing existing flight
+  bool _isEditMode = false;
+
+  /// Loading state indicator
+  bool _isLoading = true;
 
   /// Language toggle state (false = English, true = French)
   bool _isFrench = false;
+
+  /// View toggle for compressed screen (false = form/list, true = details)
+  bool _showDetailsView = false;
+
+  /// Flight being edited (null for new flight)
+  Flight? _editingFlight;
 
   /// Helper method to get text based on current language
   String _getText(String english, String french) {
@@ -51,185 +66,358 @@ class _FlightsPageState extends State<FlightsPage> {
   @override
   void initState() {
     super.initState();
-    _loadLanguagePreference();
-    _loadFlights();
-    _askReusePreviousFlight();
+    _initializeData();
   }
 
-  /// Load saved language preference
-  Future<void> _loadLanguagePreference() async {
-    final savedLang = await encryptedPrefs.getString('language') ?? 'en';
-    setState(() {
-      _isFrench = savedLang == 'fr';
-    });
+  /// Initialize database and load saved form data
+  Future<void> _initializeData() async {
+    try {
+      print('Step 1: Loading language preference...');
+      final savedLang = await encryptedPrefs.getString('language') ?? 'en';
+      setState(() {
+        _isFrench = savedLang == 'fr';
+      });
+
+      print('Step 2: Loading form data from preferences...');
+      await _loadFormData();
+
+      print('Step 3: Loading flights from database...');
+      await _loadFlights();
+
+      print('Flight initialization completed successfully');
+    } catch (e, stackTrace) {
+      print('Error during flight initialization: $e');
+      print('Stack trace: $stackTrace');
+
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(_getText('Database initialization failed', 'Échec de l\'initialisation de la base de données')),
+            backgroundColor: Colors.red,
+            action: SnackBarAction(
+              label: _getText('Retry', 'Réessayer'),
+              textColor: Colors.white,
+              onPressed: _initializeData,
+            ),
+          ),
+        );
+      }
+    } finally {
+      if (mounted) {
+        setState(() {
+          _isLoading = false;
+        });
+      }
+    }
+  }
+
+  /// Load form data from encrypted shared preferences
+  Future<void> _loadFormData() async {
+    try {
+      if (!_isEditMode) {
+        final departure = await encryptedPrefs.getString('flight_departure');
+        final destination = await encryptedPrefs.getString('flight_destination');
+        final departureTime = await encryptedPrefs.getString('flight_departureTime');
+        final arrivalTime = await encryptedPrefs.getString('flight_arrivalTime');
+
+        if (mounted) {
+          setState(() {
+            departureCityController.text = departure ?? '';
+            destinationCityController.text = destination ?? '';
+            departureTimeController.text = departureTime ?? '';
+            arrivalTimeController.text = arrivalTime ?? '';
+          });
+        }
+      }
+    } catch (e) {
+      print('Warning: Could not load flight form data: $e');
+    }
   }
 
   /// Load all flights from database
   Future<void> _loadFlights() async {
     try {
       final dbFlights = await flightDao.getAllFlights();
-      print('Loaded ${dbFlights.length} flights from database'); // 调试信息
-      setState(() {
-        flights = dbFlights;
-      });
+      if (mounted) {
+        setState(() {
+          flights = dbFlights;
+        });
+      }
+      print('Loaded ${dbFlights.length} flights from database');
     } catch (e) {
       print('Error loading flights: $e');
-      _showSnackBar(_getText('❌ Error loading flights', '❌ Erreur de chargement des vols'));
-    }
-  }
-
-  /// Ask user whether to reuse previous flight data
-  /// Requirement 6: EncryptedSharedPreferences usage
-  Future<void> _askReusePreviousFlight() async {
-    final reuse = await showDialog<bool>(
-      context: context,
-      builder: (_) => AlertDialog(
-        title: Text(_getText('Reuse Previous Flight?', 'Réutiliser le vol précédent?')),
-        content: Text(_getText(
-            'Would you like to reuse the last entered flight details?',
-            'Voulez-vous réutiliser les détails du dernier vol saisi?'
-        )),
-        actions: [
-          TextButton(
-              onPressed: () => Navigator.pop(context, false),
-              child: Text(_getText('Start Fresh', 'Recommencer'))
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(_getText('Failed to load flights', 'Échec du chargement des vols')),
+            backgroundColor: Colors.red,
           ),
-          TextButton(
-              onPressed: () => Navigator.pop(context, true),
-              child: Text(_getText('Reuse', 'Réutiliser'))
-          ),
-        ],
-      ),
-    );
-
-    if (reuse == true) {
-      try {
-        departureCityController.text = await encryptedPrefs.getString('flight_departure');
-        destinationCityController.text = await encryptedPrefs.getString('flight_destination');
-        departureTimeController.text = await encryptedPrefs.getString('flight_departureTime');
-        arrivalTimeController.text = await encryptedPrefs.getString('flight_arrivalTime');
-      } catch (e) {
-        print('Failed to load previous flight: $e');
+        );
       }
     }
   }
 
-  /// Save flight data to encrypted preferences
-  Future<void> _saveFlightToEncryptedPrefs(Map<String, String> flight) async {
-    await encryptedPrefs.setString('flight_departure', flight['departure'] ?? '');
-    await encryptedPrefs.setString('flight_destination', flight['destination'] ?? '');
-    await encryptedPrefs.setString('flight_departureTime', flight['departureTime'] ?? '');
-    await encryptedPrefs.setString('flight_arrivalTime', flight['arrivalTime'] ?? '');
+  /// Add new flight to database
+  Future<void> _addFlight() async {
+    if (!_validateForm()) {
+      return;
+    }
+
+    try {
+      final newFlight = Flight(
+        departure: departureCityController.text.trim(),
+        destination: destinationCityController.text.trim(),
+        departureTime: departureTimeController.text.trim(),
+        arrivalTime: arrivalTimeController.text.trim(),
+      );
+
+      await flightDao.insertFlight(newFlight);
+      await _saveFormData();
+      await _loadFlights();
+      _clearForm();
+
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(_getText(
+                'Flight added successfully!',
+                'Vol ajouté avec succès!'
+            )),
+            backgroundColor: Colors.green,
+          ),
+        );
+      }
+    } catch (e) {
+      print('Error adding flight: $e');
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(_getText(
+                'Error adding flight',
+                'Erreur lors de l\'ajout du vol'
+            )),
+            backgroundColor: Colors.red,
+          ),
+        );
+      }
+    }
   }
 
-  /// Reset form to initial state
-  void _resetForm() {
+  /// Update existing flight in database
+  Future<void> _updateFlight() async {
+    if (_editingFlight == null || !_validateForm()) {
+      return;
+    }
+
+    try {
+      final updatedFlight = Flight(
+        id: _editingFlight!.id,
+        departure: departureCityController.text.trim(),
+        destination: destinationCityController.text.trim(),
+        departureTime: departureTimeController.text.trim(),
+        arrivalTime: arrivalTimeController.text.trim(),
+      );
+
+      await flightDao.updateFlight(updatedFlight);
+      await _loadFlights();
+
+      if (_selectedFlight?.id == _editingFlight!.id) {
+        setState(() {
+          _selectedFlight = updatedFlight;
+        });
+      }
+
+      _exitEditMode();
+
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(_getText(
+                'Flight updated successfully!',
+                'Vol mis à jour avec succès!'
+            )),
+            backgroundColor: Colors.green,
+          ),
+        );
+      }
+    } catch (e) {
+      print('Error updating flight: $e');
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(_getText(
+                'Error updating flight',
+                'Erreur lors de la mise à jour du vol'
+            )),
+            backgroundColor: Colors.red,
+          ),
+        );
+      }
+    }
+  }
+
+  /// Save current form data to encrypted preferences
+  Future<void> _saveFormData() async {
+    try {
+      await encryptedPrefs.setString('flight_departure', departureCityController.text);
+      await encryptedPrefs.setString('flight_destination', destinationCityController.text);
+      await encryptedPrefs.setString('flight_departureTime', departureTimeController.text);
+      await encryptedPrefs.setString('flight_arrivalTime', arrivalTimeController.text);
+      print('Flight form data saved to encrypted preferences');
+    } catch (e) {
+      print('Warning: Could not save flight form data: $e');
+    }
+  }
+
+  /// Validate form input fields
+  bool _validateForm() {
+    if (departureCityController.text.trim().isEmpty) {
+      _showValidationError(_getText('Departure city is required', 'La ville de départ est requise'));
+      return false;
+    }
+
+    if (destinationCityController.text.trim().isEmpty) {
+      _showValidationError(_getText('Destination city is required', 'La ville de destination est requise'));
+      return false;
+    }
+
+    if (departureTimeController.text.trim().isEmpty) {
+      _showValidationError(_getText('Departure time is required', 'L\'heure de départ est requise'));
+      return false;
+    }
+
+    if (arrivalTimeController.text.trim().isEmpty) {
+      _showValidationError(_getText('Arrival time is required', 'L\'heure d\'arrivée est requise'));
+      return false;
+    }
+
+    return true;
+  }
+
+  /// Show validation error message
+  void _showValidationError(String message) {
+    showDialog(
+      context: context,
+      builder: (BuildContext context) {
+        return AlertDialog(
+          title: Text(_getText('Validation Error', 'Erreur de validation')),
+          content: Text(message),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.of(context).pop(),
+              child: Text(_getText('OK', 'OK')),
+            ),
+          ],
+        );
+      },
+    );
+  }
+
+  /// Clear all form fields
+  void _clearForm() {
     departureCityController.clear();
     destinationCityController.clear();
     departureTimeController.clear();
     arrivalTimeController.clear();
-    setState(() => selectedFlightIndex = null);
+    setState(() {
+      _isEditMode = false;
+      _editingFlight = null;
+    });
   }
 
-  /// Submit form data to database
-  /// Requirement 2: Insert/Update functionality
-  /// Requirement 5: Snackbar feedback
-  void _submitForm() async {
-    if (_formKey.currentState?.validate() ?? false) {
-      final flight = Flight(
-        id: selectedFlightIndex != null ? flights[selectedFlightIndex!].id : null,
-        departure: departureCityController.text,
-        destination: destinationCityController.text,
-        departureTime: departureTimeController.text,
-        arrivalTime: arrivalTimeController.text,
-      );
+  /// Enter edit mode for selected flight
+  void _enterEditMode(Flight flight) {
+    setState(() {
+      _isEditMode = true;
+      _editingFlight = flight;
+      departureCityController.text = flight.departure;
+      destinationCityController.text = flight.destination;
+      departureTimeController.text = flight.departureTime;
+      arrivalTimeController.text = flight.arrivalTime;
 
-      try {
-        if (selectedFlightIndex != null) {
-          await flightDao.updateFlight(flight);
-          _showSnackBar(_getText('✈️ Flight updated successfully!', '✈️ Vol mis à jour avec succès!'));
-        } else {
-          final insertedId = await flightDao.insertFlight(flight);
-          print('Inserted flight with ID: $insertedId'); // 调试信息
-          _showSnackBar(_getText('✈️ Flight added successfully!', '✈️ Vol ajouté avec succès!'));
-        }
-
-        await _saveFlightToEncryptedPrefs({
-          'departure': flight.departure,
-          'destination': flight.destination,
-          'departureTime': flight.departureTime,
-          'arrivalTime': flight.arrivalTime,
-        });
-
-        await _loadFlights();
-        print('Loaded ${flights.length} flights'); // 调试信息
-
-        _resetForm();
-      } catch (e) {
-        print('Error submitting form: $e');
-        _showSnackBar(_getText('❌ Error saving flight', '❌ Erreur lors de l\'enregistrement'));
+      // If on compressed screen, switch to form view
+      final isTablet = MediaQuery.of(context).size.width > 720;
+      if (!isTablet) {
+        _showDetailsView = false;
       }
-    }
+    });
   }
 
-  /// Edit existing flight
-  void _editFlight(int index) {
-    final flight = flights[index];
-    departureCityController.text = flight.departure;
-    destinationCityController.text = flight.destination;
-    departureTimeController.text = flight.departureTime;
-    arrivalTimeController.text = flight.arrivalTime;
-    setState(() => selectedFlightIndex = index);
+  /// Exit edit mode and clear form
+  void _exitEditMode() {
+    _clearForm();
   }
 
-  /// Delete flight with confirmation
-  /// Requirement 5: AlertDialog for confirmation
-  void _deleteFlight(int index) async {
-    final confirmed = await showDialog<bool>(
+  /// Delete flight from database
+  Future<void> _deleteFlight(Flight flight) async {
+    final bool? confirmed = await showDialog<bool>(
       context: context,
-      builder: (_) => AlertDialog(
-        title: Text(_getText('Delete Flight?', 'Supprimer le vol?')),
-        content: Text(_getText(
-            'Are you sure you want to delete this flight?',
-            'Êtes-vous sûr de vouloir supprimer ce vol?'
-        )),
-        actions: [
-          TextButton(
-              onPressed: () => Navigator.pop(context, false),
-              child: Text(_getText('Cancel', 'Annuler'))
-          ),
-          TextButton(
-            onPressed: () => Navigator.pop(context, true),
-            child: Text(
-                _getText('Delete', 'Supprimer'),
-                style: const TextStyle(color: Colors.red)
+      builder: (BuildContext context) {
+        return AlertDialog(
+          title: Text(_getText('Confirm Deletion', 'Confirmer la suppression')),
+          content: Text(_getText(
+              'Are you sure you want to delete this flight?',
+              'Êtes-vous sûr de vouloir supprimer ce vol?'
+          )),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.of(context).pop(false),
+              child: Text(_getText('Cancel', 'Annuler')),
             ),
-          ),
-        ],
-      ),
+            TextButton(
+              onPressed: () => Navigator.of(context).pop(true),
+              child: Text(_getText('Delete', 'Supprimer')),
+              style: TextButton.styleFrom(foregroundColor: Colors.red),
+            ),
+          ],
+        );
+      },
     );
 
     if (confirmed == true) {
-      final flightId = flights[index].id;
-      if (flightId != null) {
-        await flightDao.deleteFlight(flightId);
+      try {
+        await flightDao.deleteFlight(flight.id!);
         await _loadFlights();
-        _resetForm();
-        _showSnackBar(_getText('🗑️ Flight deleted', '🗑️ Vol supprimé'));
+
+        if (_selectedFlight?.id == flight.id) {
+          setState(() {
+            _selectedFlight = null;
+          });
+        }
+
+        if (_editingFlight?.id == flight.id) {
+          _exitEditMode();
+        }
+
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text(_getText(
+                  'Flight deleted successfully',
+                  'Vol supprimé avec succès'
+              )),
+              backgroundColor: Colors.orange,
+            ),
+          );
+        }
+      } catch (e) {
+        print('Error deleting flight: $e');
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text(_getText(
+                  'Error deleting flight',
+                  'Erreur lors de la suppression du vol'
+              )),
+              backgroundColor: Colors.red,
+            ),
+          );
+        }
       }
     }
   }
 
-  /// Show snackbar with message
-  /// Requirement 5: Snackbar for user feedback
-  void _showSnackBar(String message) {
-    ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text(message))
-    );
-  }
-
   /// Show help dialog
-  /// Requirement 7: Help instructions
   void _showHelpDialog() {
     showDialog(
       context: context,
@@ -239,15 +427,17 @@ class _FlightsPageState extends State<FlightsPage> {
             '1. Fill in flight details:\n'
                 '   • Departure and destination cities\n'
                 '   • Departure and arrival times\n\n'
-                '2. Tap "Submit" to save the flight\n\n'
-                '3. Tap any flight to edit or delete it\n\n'
-                '4. Your last entry is saved automatically',
+                '2. Tap "Add Flight" to save the flight\n\n'
+                '3. Tap any flight to view details\n\n'
+                '4. Use edit/delete buttons to modify flights\n\n'
+                '5. Your last entry is saved automatically',
             '1. Remplissez les détails du vol:\n'
                 '   • Villes de départ et de destination\n'
                 '   • Heures de départ et d\'arrivée\n\n'
-                '2. Appuyez sur "Soumettre" pour enregistrer\n\n'
-                '3. Appuyez sur n\'importe quel vol pour modifier ou supprimer\n\n'
-                '4. Votre dernière saisie est enregistrée automatiquement'
+                '2. Appuyez sur "Ajouter Vol" pour enregistrer\n\n'
+                '3. Appuyez sur n\'importe quel vol pour voir les détails\n\n'
+                '4. Utilisez les boutons modifier/supprimer\n\n'
+                '5. Votre dernière saisie est enregistrée automatiquement'
         )),
         actions: [
           TextButton(
@@ -260,7 +450,6 @@ class _FlightsPageState extends State<FlightsPage> {
   }
 
   /// Show language selection dialog
-  /// Requirement 8: Language switching
   void _showLanguageDialog() {
     showDialog(
       context: context,
@@ -297,154 +486,444 @@ class _FlightsPageState extends State<FlightsPage> {
     );
   }
 
-  /// Build text field widget
-  Widget _buildTextField(TextEditingController controller, String labelEn, String labelFr) {
-    return TextFormField(
-      controller: controller,
-      decoration: InputDecoration(
-        labelText: _getText(labelEn, labelFr),
-        border: const OutlineInputBorder(),
-      ),
-      validator: (value) => value == null || value.isEmpty
-          ? _getText('Please enter $labelEn', 'Veuillez entrer $labelFr')
-          : null,
-    );
-  }
-
-  /// Build responsive layout
-  /// Requirement 4: Responsive design for tablet/phone
+  /// Build responsive layout based on screen size
   Widget _buildResponsiveLayout() {
-    final isTablet = MediaQuery.of(context).size.width > 600;
+    final size = MediaQuery.of(context).size;
+    final isTablet = size.width > 720 && size.width > size.height;
 
-    if (isTablet && selectedFlightIndex != null) {
-      // Tablet: Show list and details side by side
+    if (isTablet) {
+      // Tablet layout: List and form on left, details on right
       return Row(
         children: [
           Expanded(
-            flex: 1,
-            child: _buildFlightList(),
+            flex: 2,
+            child: _buildListAndForm(),
           ),
-          const VerticalDivider(),
           Expanded(
             flex: 1,
-            child: _buildFlightDetails(flights[selectedFlightIndex!]),
+            child: _buildDetailsPanel(),
           ),
         ],
       );
     } else {
-      // Phone: Show list only
-      return _buildFlightList();
+      // Phone layout: Full screen list/form or details
+      if (_selectedFlight != null && !_isEditMode && _showDetailsView) {
+        return _buildDetailsPanel();
+      } else {
+        return _buildListAndForm();
+      }
     }
   }
 
-  /// Build flight details panel for tablets
-  Widget _buildFlightDetails(Flight flight) {
-    return Card(
-      elevation: 4,
-      child: Padding(
-        padding: const EdgeInsets.all(16.0),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Text(
-              _getText('Flight Details', 'Détails du vol'),
-              style: Theme.of(context).textTheme.titleLarge,
-            ),
-            const SizedBox(height: 16),
-            Text('${_getText("From", "De")}: ${flight.departure}'),
-            Text('${_getText("To", "À")}: ${flight.destination}'),
-            Text('${_getText("Departure", "Départ")}: ${flight.departureTime}'),
-            Text('${_getText("Arrival", "Arrivée")}: ${flight.arrivalTime}'),
-            const SizedBox(height: 16),
-            Row(
-              children: [
-                ElevatedButton.icon(
-                  icon: const Icon(Icons.edit),
-                  label: Text(_getText('Edit', 'Modifier')),
-                  style: ElevatedButton.styleFrom(backgroundColor: Colors.orange),
-                  onPressed: () => _editFlight(selectedFlightIndex!),
+  /// Build list and form section
+  Widget _buildListAndForm() {
+    return Column(
+      children: [
+        // Add/Edit Flight Form
+        Padding(
+          padding: const EdgeInsets.all(16),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                _isEditMode
+                    ? _getText('Edit Flight', 'Modifier le vol')
+                    : _getText('Add New Flight', 'Ajouter un nouveau vol'),
+                style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+              ),
+              const SizedBox(height: 16),
+              TextField(
+                controller: departureCityController,
+                decoration: InputDecoration(
+                  labelText: _getText('Departure City', 'Ville de départ'),
+                  hintText: _getText('Enter departure city', 'Entrez la ville de départ'),
+                  border: const OutlineInputBorder(),
+                  prefixIcon: const Icon(Icons.flight_takeoff),
                 ),
-                const SizedBox(width: 8),
-                ElevatedButton.icon(
-                  icon: const Icon(Icons.delete),
-                  label: Text(_getText('Delete', 'Supprimer')),
-                  style: ElevatedButton.styleFrom(backgroundColor: Colors.red),
-                  onPressed: () => _deleteFlight(selectedFlightIndex!),
+                textCapitalization: TextCapitalization.words,
+              ),
+              const SizedBox(height: 12),
+              TextField(
+                controller: destinationCityController,
+                decoration: InputDecoration(
+                  labelText: _getText('Destination City', 'Ville de destination'),
+                  hintText: _getText('Enter destination city', 'Entrez la ville de destination'),
+                  border: const OutlineInputBorder(),
+                  prefixIcon: const Icon(Icons.flight_land),
+                ),
+                textCapitalization: TextCapitalization.words,
+              ),
+              const SizedBox(height: 12),
+              TextField(
+                controller: departureTimeController,
+                decoration: InputDecoration(
+                  labelText: _getText('Departure Time', 'Heure de départ'),
+                  hintText: _getText('e.g., 08:00 AM', 'ex: 08:00'),
+                  border: const OutlineInputBorder(),
+                  prefixIcon: const Icon(Icons.schedule),
+                ),
+              ),
+              const SizedBox(height: 12),
+              TextField(
+                controller: arrivalTimeController,
+                decoration: InputDecoration(
+                  labelText: _getText('Arrival Time', 'Heure d\'arrivée'),
+                  hintText: _getText('e.g., 10:30 AM', 'ex: 10:30'),
+                  border: const OutlineInputBorder(),
+                  prefixIcon: const Icon(Icons.access_time),
+                ),
+              ),
+              const SizedBox(height: 16),
+
+              // Action buttons
+              if (_isEditMode) ...[
+                Row(
+                  children: [
+                    Expanded(
+                      child: ElevatedButton.icon(
+                        onPressed: _updateFlight,
+                        icon: const Icon(Icons.save),
+                        label: Text(_getText('Update Flight', 'Mettre à jour le vol')),
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: Colors.blue,
+                          foregroundColor: Colors.white,
+                          padding: const EdgeInsets.symmetric(vertical: 12),
+                        ),
+                      ),
+                    ),
+                    const SizedBox(width: 8),
+                    ElevatedButton.icon(
+                      onPressed: _exitEditMode,
+                      icon: const Icon(Icons.cancel),
+                      label: Text(_getText('Cancel', 'Annuler')),
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: Colors.grey,
+                        foregroundColor: Colors.white,
+                      ),
+                    ),
+                  ],
+                ),
+              ] else ...[
+                Row(
+                  children: [
+                    Expanded(
+                      child: ElevatedButton.icon(
+                        onPressed: _addFlight,
+                        icon: const Icon(Icons.add),
+                        label: Text(_getText('Add Flight', 'Ajouter le vol')),
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: Colors.green,
+                          foregroundColor: Colors.white,
+                          padding: const EdgeInsets.symmetric(vertical: 12),
+                        ),
+                      ),
+                    ),
+                    const SizedBox(width: 8),
+                    ElevatedButton.icon(
+                      onPressed: _clearForm,
+                      icon: const Icon(Icons.clear),
+                      label: Text(_getText('Clear Form', 'Effacer')),
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: Colors.grey,
+                        foregroundColor: Colors.white,
+                      ),
+                    ),
+                  ],
+                ),
+              ],
+            ],
+          ),
+        ),
+
+        // Flights List
+        Expanded(
+          child: flights.isEmpty
+              ? Center(
+            child: Column(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                Icon(
+                  Icons.flight_takeoff,
+                  size: 64,
+                  color: Colors.grey[400],
+                ),
+                const SizedBox(height: 16),
+                Text(
+                  _getText('No flights found', 'Aucun vol trouvé'),
+                  style: const TextStyle(fontSize: 16),
+                ),
+                const SizedBox(height: 8),
+                Text(
+                  _getText('Add your first flight using the form above', 'Ajoutez votre premier vol avec le formulaire ci-dessus'),
+                  style: TextStyle(color: Colors.grey[600]),
+                  textAlign: TextAlign.center,
                 ),
               ],
             ),
-          ],
+          )
+              : ListView.builder(
+            itemCount: flights.length,
+            itemBuilder: (context, index) {
+              final flight = flights[index];
+              final isSelected = _selectedFlight?.id == flight.id;
+
+              return Card(
+                margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
+                elevation: isSelected ? 4 : 2,
+                color: isSelected ? Colors.blue.withOpacity(0.1) : null,
+                child: ListTile(
+                  leading: CircleAvatar(
+                    backgroundColor: isSelected ? Colors.blue : Colors.orange,
+                    child: const Icon(
+                      Icons.flight_takeoff,
+                      color: Colors.white,
+                    ),
+                  ),
+                  title: Text(
+                    '${flight.departure} → ${flight.destination}',
+                    style: TextStyle(
+                      fontWeight: isSelected ? FontWeight.bold : FontWeight.normal,
+                    ),
+                  ),
+                  subtitle: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(_getText(
+                          'Departs: ${flight.departureTime}',
+                          'Départ: ${flight.departureTime}'
+                      )),
+                      Text(_getText(
+                          'Arrives: ${flight.arrivalTime}',
+                          'Arrivée: ${flight.arrivalTime}'
+                      )),
+                    ],
+                  ),
+                  trailing: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      if (isSelected)
+                        const Icon(Icons.check_circle, color: Colors.blue),
+                      IconButton(
+                        icon: const Icon(Icons.edit, color: Colors.orange),
+                        onPressed: () => _enterEditMode(flight),
+                        tooltip: _getText('Edit flight', 'Modifier le vol'),
+                      ),
+                      IconButton(
+                        icon: const Icon(Icons.delete, color: Colors.red),
+                        onPressed: () => _deleteFlight(flight),
+                        tooltip: _getText('Delete flight', 'Supprimer le vol'),
+                      ),
+                    ],
+                  ),
+                  onTap: () {
+                    setState(() {
+                      _selectedFlight = _selectedFlight?.id == flight.id ? null : flight;
+
+                      // If on phone and flight selected, show details
+                      final isTablet = MediaQuery.of(context).size.width > 720;
+                      if (!isTablet && _selectedFlight != null) {
+                        _showDetailsView = true;
+                      }
+                    });
+                  },
+                ),
+              );
+            },
+          ),
         ),
-      ),
+      ],
     );
   }
 
-  /// Build flight list
-  /// Requirement 1: ListView for displaying flights
-  Widget _buildFlightList() {
-    if (flights.isEmpty) {
-      return Container(
-        height: 200, // 给定固定高度
-        child: Center(
-          child: Column(
-            mainAxisAlignment: MainAxisAlignment.center,
-            children: [
-              const Icon(Icons.flight_land, size: 64, color: Colors.grey),
-              const SizedBox(height: 16),
-              Text(
-                _getText('No flights added yet.', 'Aucun vol ajouté pour le moment.'),
-                style: const TextStyle(fontSize: 16, color: Colors.grey),
-              ),
-            ],
-          ),
+  /// Build details panel for selected flight
+  Widget _buildDetailsPanel() {
+    final size = MediaQuery.of(context).size;
+    final isPhone = size.width <= 720 || size.width <= size.height;
+
+    if (_selectedFlight == null) {
+      return Center(
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Icon(
+              Icons.touch_app,
+              size: 64,
+              color: Colors.grey[400],
+            ),
+            const SizedBox(height: 16),
+            Text(
+              _getText('Select a flight to view details', 'Sélectionnez un vol pour voir les détails'),
+              style: const TextStyle(fontSize: 16),
+              textAlign: TextAlign.center,
+            ),
+            const SizedBox(height: 8),
+            Text(
+              _getText('Tap any flight from the list', 'Appuyez sur un vol de la liste'),
+              style: TextStyle(color: Colors.grey[600]),
+              textAlign: TextAlign.center,
+            ),
+          ],
         ),
       );
     }
 
-    return ListView.builder(
-      shrinkWrap: true,
-      physics: const NeverScrollableScrollPhysics(),
-      itemCount: flights.length,
-      itemBuilder: (context, index) {
-        final flight = flights[index];
-        final isSelected = selectedFlightIndex == index;
-
-        return Card(
-          elevation: isSelected ? 4 : 2,
-          color: isSelected ? Colors.blue.withOpacity(0.1) : null,
-          shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(8),
-            side: isSelected ? const BorderSide(color: Colors.blue, width: 2) : BorderSide.none,
-          ),
-          child: ListTile(
-            leading: const Icon(Icons.flight_takeoff, color: Colors.blue),
-            title: Text('${flight.departure} → ${flight.destination}'),
-            subtitle: Text('${_getText("Departs", "Départ")}: ${flight.departureTime} | ${_getText("Arrives", "Arrivée")}: ${flight.arrivalTime}'),
-            trailing: Row(
-              mainAxisSize: MainAxisSize.min,
+    return Padding(
+      padding: const EdgeInsets.all(16),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          if (isPhone)
+            Row(
               children: [
                 IconButton(
-                  icon: const Icon(Icons.edit, color: Colors.orange),
-                  onPressed: () => _editFlight(index),
+                  icon: const Icon(Icons.arrow_back),
+                  onPressed: () {
+                    setState(() {
+                      _selectedFlight = null;
+                      _showDetailsView = false;
+                    });
+                  },
                 ),
-                IconButton(
-                  icon: const Icon(Icons.delete, color: Colors.red),
-                  onPressed: () => _deleteFlight(index),
+                Expanded(
+                  child: Text(
+                    _getText('Flight Details', 'Détails du vol'),
+                    style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+                  ),
+                ),
+              ],
+            )
+          else
+            Text(
+              _getText('Flight Details', 'Détails du vol'),
+              style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+            ),
+          const SizedBox(height: 16),
+
+          Center(
+            child: Column(
+              children: [
+                Icon(Icons.flight_takeoff, size: 48, color: Colors.blue),
+                const SizedBox(height: 16),
+                Text(
+                  '${_selectedFlight!.departure} → ${_selectedFlight!.destination}',
+                  style: const TextStyle(
+                    fontSize: 20,
+                    fontWeight: FontWeight.bold,
+                  ),
                 ),
               ],
             ),
-            onTap: () {
-              setState(() => selectedFlightIndex = index);
-            },
           ),
-        );
-      },
+          const SizedBox(height: 16),
+
+          _buildDetailCard(
+            icon: Icons.tag,
+            title: _getText('Flight ID', 'ID Vol'),
+            value: '${_selectedFlight!.id}',
+            color: Colors.blue,
+          ),
+          const SizedBox(height: 12),
+
+          _buildDetailCard(
+            icon: Icons.flight_takeoff,
+            title: _getText('Departure', 'Départ'),
+            value: '${_selectedFlight!.departure} at ${_selectedFlight!.departureTime}',
+            color: Colors.green,
+          ),
+          const SizedBox(height: 12),
+
+          _buildDetailCard(
+            icon: Icons.flight_land,
+            title: _getText('Arrival', 'Arrivée'),
+            value: '${_selectedFlight!.destination} at ${_selectedFlight!.arrivalTime}',
+            color: Colors.orange,
+          ),
+
+          const Spacer(),
+
+          Row(
+            children: [
+              Expanded(
+                child: ElevatedButton.icon(
+                  onPressed: () => _enterEditMode(_selectedFlight!),
+                  icon: const Icon(Icons.edit),
+                  label: Text(_getText('Edit Flight', 'Modifier le vol')),
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: Colors.blue,
+                    foregroundColor: Colors.white,
+                    minimumSize: const Size(double.infinity, 48),
+                  ),
+                ),
+              ),
+              const SizedBox(width: 8),
+              Expanded(
+                child: ElevatedButton.icon(
+                  onPressed: () => _deleteFlight(_selectedFlight!),
+                  icon: const Icon(Icons.delete),
+                  label: Text(_getText('Delete', 'Supprimer')),
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: Colors.red,
+                    foregroundColor: Colors.white,
+                    minimumSize: const Size(double.infinity, 48),
+                  ),
+                ),
+              ),
+            ],
+          ),
+        ],
+      ),
+    );
+  }
+
+  /// Build a detail information card
+  Widget _buildDetailCard({
+    required IconData icon,
+    required String title,
+    required String value,
+    required Color color,
+  }) {
+    return Container(
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: color.withOpacity(0.1),
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: color.withOpacity(0.3)),
+      ),
+      child: Row(
+        children: [
+          Icon(icon, color: color, size: 24),
+          const SizedBox(width: 12),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  title,
+                  style: TextStyle(
+                    fontSize: 12,
+                    color: color,
+                    fontWeight: FontWeight.w600,
+                  ),
+                ),
+                const SizedBox(height: 4),
+                Text(
+                  value,
+                  style: const TextStyle(
+                    fontSize: 16,
+                    fontWeight: FontWeight.bold,
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ],
+      ),
     );
   }
 
   @override
   Widget build(BuildContext context) {
-    final isTablet = MediaQuery.of(context).size.width > 600;
+    final isTablet = MediaQuery.of(context).size.width > 720;
 
     return Scaffold(
       appBar: AppBar(
@@ -458,6 +937,21 @@ class _FlightsPageState extends State<FlightsPage> {
         backgroundColor: Colors.blue,
         foregroundColor: Colors.white,
         actions: [
+          // View toggle button for compressed screens
+          if (!isTablet) ...[
+            IconButton(
+              icon: Icon(_showDetailsView ? Icons.list : Icons.info),
+              onPressed: () {
+                setState(() {
+                  _showDetailsView = !_showDetailsView;
+                });
+              },
+              tooltip: _getText(
+                  _showDetailsView ? 'Show List' : 'Show Details',
+                  _showDetailsView ? 'Afficher la liste' : 'Afficher les détails'
+              ),
+            ),
+          ],
           IconButton(
             icon: const Icon(Icons.language),
             onPressed: _showLanguageDialog,
@@ -469,80 +963,33 @@ class _FlightsPageState extends State<FlightsPage> {
         ],
       ),
       backgroundColor: Colors.blue[50],
-      body: SingleChildScrollView(
-        padding: const EdgeInsets.all(16),
+      body: _isLoading
+          ? Center(
         child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            Card(
-              elevation: 4,
-              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-              child: Padding(
-                padding: const EdgeInsets.all(16.0),
-                child: Form(
-                  key: _formKey,
-                  child: Column(
-                    children: [
-                      Text(
-                        selectedFlightIndex == null
-                            ? _getText('Add New Flight', 'Ajouter un nouveau vol')
-                            : _getText('Update Flight', 'Mettre à jour le vol'),
-                        style: Theme.of(context).textTheme.titleLarge,
-                      ),
-                      const SizedBox(height: 16),
-                      _buildTextField(departureCityController, 'Departure City', 'Ville de départ'),
-                      const SizedBox(height: 12),
-                      _buildTextField(destinationCityController, 'Destination City', 'Ville de destination'),
-                      const SizedBox(height: 12),
-                      _buildTextField(departureTimeController, 'Departure Time (e.g. 08:00 AM)', 'Heure de départ (ex: 08:00)'),
-                      const SizedBox(height: 12),
-                      _buildTextField(arrivalTimeController, 'Arrival Time (e.g. 10:30 AM)', 'Heure d\'arrivée (ex: 10:30)'),
-                      const SizedBox(height: 20),
-                      Row(
-                        children: [
-                          Expanded(
-                            child: ElevatedButton.icon(
-                              icon: Icon(selectedFlightIndex == null ? Icons.add : Icons.update),
-                              onPressed: _submitForm,
-                              style: ElevatedButton.styleFrom(
-                                backgroundColor: selectedFlightIndex == null ? Colors.blue : Colors.orange,
-                                minimumSize: const Size.fromHeight(45),
-                              ),
-                              label: Text(selectedFlightIndex == null
-                                  ? _getText('Submit', 'Soumettre')
-                                  : _getText('Update', 'Mettre à jour')),
-                            ),
-                          ),
-                          if (selectedFlightIndex != null) ...[
-                            const SizedBox(width: 12),
-                            ElevatedButton(
-                              onPressed: _resetForm,
-                              style: ElevatedButton.styleFrom(
-                                backgroundColor: Colors.grey,
-                                minimumSize: const Size.fromHeight(45),
-                              ),
-                              child: Text(_getText('Cancel', 'Annuler')),
-                            ),
-                          ]
-                        ],
-                      )
-                    ],
-                  ),
-                ),
-              ),
-            ),
-            const SizedBox(height: 24),
-            Text(
-              _getText('✈️ All Flights:', '✈️ Tous les vols:'),
-              style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                fontWeight: FontWeight.bold,
-                color: Colors.grey[800],
-              ),
-            ),
+            const CircularProgressIndicator(),
+            const SizedBox(height: 16),
+            Text(_getText('Loading flights...', 'Chargement des vols...')),
             const SizedBox(height: 8),
-            _buildResponsiveLayout(),
+            Text(
+              _getText('Please wait while we initialize the database', 'Veuillez patienter pendant l\'initialisation de la base de données'),
+              style: TextStyle(color: Colors.grey[600]),
+              textAlign: TextAlign.center,
+            ),
           ],
         ),
-      ),
+      )
+          : _buildResponsiveLayout(),
     );
+  }
+
+  @override
+  void dispose() {
+    departureCityController.dispose();
+    destinationCityController.dispose();
+    departureTimeController.dispose();
+    arrivalTimeController.dispose();
+    super.dispose();
   }
 }
