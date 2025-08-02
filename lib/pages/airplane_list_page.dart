@@ -389,6 +389,130 @@ class _AirplaneListPageState extends State<AirplaneListPage> {
     );
   }
 
+  /// Show airplane details dialog for phone layout
+  ///
+  /// Displays full airplane details in a dialog for phone users
+  /// Requirement 4: Full screen detail view for phones
+  void _showAirplaneDetailsDialog(Airplane airplane) {
+    showDialog(
+      context: context,
+      builder: (BuildContext context) {
+        return Dialog(
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(16),
+          ),
+          child: Container(
+            padding: const EdgeInsets.all(20),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                // Header with close button
+                Row(
+                  children: [
+                    Icon(Icons.airplanemode_active, size: 32, color: Colors.blue),
+                    const SizedBox(width: 12),
+                    Expanded(
+                      child: Text(
+                        airplane.type,
+                        style: Theme.of(context).textTheme.headlineSmall?.copyWith(
+                          fontWeight: FontWeight.bold,
+                          color: Colors.blue[800],
+                        ),
+                      ),
+                    ),
+                    IconButton(
+                      icon: const Icon(Icons.close),
+                      onPressed: () => Navigator.pop(context),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 24),
+
+                // Specifications
+                Text(
+                  _getText('Specifications', 'Spécifications'),
+                  style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                    fontWeight: FontWeight.w600,
+                    color: Colors.grey[700],
+                  ),
+                ),
+                const SizedBox(height: 16),
+
+                // Details
+                _buildDetailRow(
+                  Icons.people,
+                  _getText('Passenger Capacity', 'Capacité de passagers'),
+                  '${airplane.passengerCapacity} ${_getText('passengers', 'passagers')}',
+                ),
+                const SizedBox(height: 12),
+                _buildDetailRow(
+                  Icons.speed,
+                  _getText('Maximum Speed', 'Vitesse maximale'),
+                  '${airplane.maxSpeed} km/h',
+                ),
+                const SizedBox(height: 12),
+                _buildDetailRow(
+                  Icons.flight,
+                  _getText('Flight Range', 'Portée de vol'),
+                  '${airplane.range} km',
+                ),
+
+                const SizedBox(height: 24),
+
+                // Action buttons
+                Row(
+                  children: [
+                    Expanded(
+                      child: ElevatedButton.icon(
+                        icon: const Icon(Icons.edit),
+                        label: Text(_getText('Edit', 'Modifier')),
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: Colors.orange,
+                          foregroundColor: Colors.white,
+                          minimumSize: const Size.fromHeight(45),
+                        ),
+                        onPressed: () {
+                          Navigator.pop(context); // Close dialog
+                          setState(() {
+                            _selectedAirplane = airplane;
+                            _typeController.text = airplane.type;
+                            _capacityController.text = airplane.passengerCapacity.toString();
+                            _speedController.text = airplane.maxSpeed.toString();
+                            _rangeController.text = airplane.range.toString();
+                          });
+                        },
+                      ),
+                    ),
+                    const SizedBox(width: 12),
+                    Expanded(
+                      child: ElevatedButton.icon(
+                        icon: const Icon(Icons.delete),
+                        label: Text(_getText('Delete', 'Supprimer')),
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: Colors.red,
+                          foregroundColor: Colors.white,
+                          minimumSize: const Size.fromHeight(45),
+                        ),
+                        onPressed: () {
+                          Navigator.pop(context); // Close dialog
+                          setState(() {
+                            _selectedAirplane = airplane;
+                          });
+                          _confirmDeleteAirplane();
+                        },
+                      ),
+                    ),
+                  ],
+                ),
+              ],
+            ),
+          ),
+        );
+      },
+    );
+  }
+
   /// Build airplane details panel for responsive layout
   ///
   /// Creates a detailed view of the selected airplane with edit/delete options
@@ -685,6 +809,7 @@ class _AirplaneListPageState extends State<AirplaneListPage> {
         final isSelected = _selectedAirplane?.id == airplane.id;
 
         return Card(
+          margin: const EdgeInsets.symmetric(horizontal: 0, vertical: 4),
           color: isSelected
               ? Colors.blue.withOpacity(0.1)
               : Colors.white.withOpacity(0.95),
@@ -695,34 +820,39 @@ class _AirplaneListPageState extends State<AirplaneListPage> {
                 : BorderSide.none,
           ),
           elevation: 3,
-          child: ListTile(
-            leading: Icon(
-              Icons.airplanemode_active,
-              color: isSelected ? Colors.blue : Colors.grey[600],
-            ),
-            title: Text(
-              airplane.type,
-              style: TextStyle(
-                fontWeight: FontWeight.bold,
-                color: isSelected ? Colors.blue : null,
+          child: Container(
+            constraints: const BoxConstraints(minHeight: 72),
+            child: ListTile(
+              contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+              leading: Icon(
+                Icons.airplanemode_active,
+                color: isSelected ? Colors.blue : Colors.grey[600],
               ),
-            ),
-            subtitle: Text(
-              "👥 ${airplane.passengerCapacity} | 💨 ${airplane.maxSpeed} km/h | 📏 ${airplane.range} km",
-            ),
-            onTap: () {
-              setState(() {
-                _selectedAirplane = airplane;
+              title: Text(
+                airplane.type,
+                style: TextStyle(
+                  fontWeight: FontWeight.bold,
+                  color: isSelected ? Colors.blue : null,
+                ),
+                overflow: TextOverflow.ellipsis,
+              ),
+              subtitle: Text(
+                "👥 ${airplane.passengerCapacity} | 💨 ${airplane.maxSpeed} km/h | 📏 ${airplane.range} km",
+                overflow: TextOverflow.ellipsis,
+              ),
+              onTap: () {
+                setState(() {
+                  _selectedAirplane = airplane;
+                });
+
                 final isTablet = MediaQuery.of(context).size.width > 600;
                 if (!isTablet) {
-                  // On phone, populate form fields for editing
-                  _typeController.text = airplane.type;
-                  _capacityController.text = airplane.passengerCapacity.toString();
-                  _speedController.text = airplane.maxSpeed.toString();
-                  _rangeController.text = airplane.range.toString();
+                  // On phone, show details dialog
+                  _showAirplaneDetailsDialog(airplane);
                 }
-              });
-            },
+                // On tablet, details will show in the side panel
+              },
+            ),
           ),
         );
       },
