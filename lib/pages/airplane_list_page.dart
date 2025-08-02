@@ -58,6 +58,9 @@ class _AirplaneListPageState extends State<AirplaneListPage> {
   /// Language toggle state (false = English, true = French)
   bool _isFrench = false;
 
+  /// View toggle for compressed screen (false = form/list, true = details)
+  bool _showDetailsView = false;
+
   /// Helper method to get text based on current language
   ///
   /// Returns the appropriate text based on the current language setting
@@ -889,6 +892,21 @@ class _AirplaneListPageState extends State<AirplaneListPage> {
         backgroundColor: Colors.blue,
         foregroundColor: Colors.white,
         actions: [
+          // View toggle button for compressed screens
+          if (!isTablet) ...[
+            IconButton(
+              icon: Icon(_showDetailsView ? Icons.list : Icons.info),
+              onPressed: () {
+                setState(() {
+                  _showDetailsView = !_showDetailsView;
+                });
+              },
+              tooltip: _getText(
+                  _showDetailsView ? 'Show List' : 'Show Details',
+                  _showDetailsView ? 'Afficher la liste' : 'Afficher les détails'
+              ),
+            ),
+          ],
           IconButton(
             icon: const Icon(Icons.language),
             onPressed: _showLanguageDialog,
@@ -943,6 +961,11 @@ class _AirplaneListPageState extends State<AirplaneListPage> {
                 ),
               ),
             ],
+          )
+              : _showDetailsView
+              ? Container(
+            color: Colors.white,
+            child: _buildDetailPanel(),
           )
               : SingleChildScrollView(
             padding: EdgeInsets.only(
