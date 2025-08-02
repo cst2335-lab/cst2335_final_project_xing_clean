@@ -3,7 +3,7 @@
 ///
 /// This application implements a complete aviation management system with
 /// four modules: Customer Management, Airplane Management, Flights Management,
-/// and Reservation Management (fully implemented).
+/// and Reservation Management.
 ///
 /// Project Requirements Addressed:
 /// * Complete Flutter application with navigation
@@ -12,7 +12,12 @@
 /// * Multi-module architecture for team development
 /// * Multi-language support (Requirement 8) - JSON-based Implementation
 ///
-/// Author: Reservation Management Module Implementation
+/// Team Members:
+/// * Xing - Reservation Management Module
+/// * Aiyar - Customer Management Module
+/// * Zhang - Flights Management Module
+/// * Jianye - Airplane Management Module
+///
 /// Course: CST2335 - Mobile Graphical Interface Programming
 /// Term: Fall 2024
 
@@ -21,11 +26,28 @@ import 'package:flutter/material.dart';
 import 'package:flutter_localizations/flutter_localizations.dart';
 import 'pages/customer_page.dart';
 import 'pages/reservation_page.dart';
+import 'pages/airplane_list_page.dart';
 import 'l10n/app_localizations.dart';
 
+// 添加这些导入以支持 Windows 平台
+import 'dart:io';
+import 'package:sqflite_common_ffi/sqflite_ffi.dart';
+
 /// Application entry point
-/// Initializes and runs the Flutter application
-void main() {
+/// Initializes platform-specific features and runs the Flutter application
+void main() async {
+  // 确保 Flutter 绑定已初始化
+  WidgetsFlutterBinding.ensureInitialized();
+
+  // Windows/Desktop 平台的 sqflite 初始化
+  if (Platform.isWindows || Platform.isLinux || Platform.isMacOS) {
+    // 初始化 FFI
+    sqfliteFfiInit();
+    // 设置数据库工厂
+    databaseFactory = databaseFactoryFfi;
+    print('Initialized sqflite for desktop platform: ${Platform.operatingSystem}');
+  }
+
   runApp(MyApp());
 }
 
@@ -159,14 +181,17 @@ class _MyAppState extends State<MyApp> {
         // Main landing page - central navigation hub
         '/': (context) => HomePage(),
 
-        // Reservation management module - complete implementation
+        // Reservation management module - Xing's implementation
         '/reservations': (context) => ReservationPage(),
 
-        // TODO: Add routes for other team members
+        // Customer management module - Aiyar's implementation
         '/customers': (context) => CustomerPage(),
-        // '/airplanes': (context) => AirplanePage(),
-        '/flights': (context) => FlightsPage(),
 
+        // Airplane management module - Jianye's implementation
+        '/airplanes': (context) => AirplaneListPage(),
+
+        // Flights management module - Zhang's implementation
+        '/flights': (context) => FlightsPage(),
       },
 
       /// Handle unknown routes gracefully
@@ -249,6 +274,24 @@ class HomePage extends StatelessWidget {
           ),
           textAlign: TextAlign.center,
         ),
+        SizedBox(height: 12),
+        // Team completion status
+        Container(
+          padding: EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+          decoration: BoxDecoration(
+            color: Colors.green[50],
+            borderRadius: BorderRadius.circular(20),
+            border: Border.all(color: Colors.green[300]!),
+          ),
+          child: Text(
+            '✅ All 4 Modules Completed!',
+            style: TextStyle(
+              fontSize: 14,
+              color: Colors.green[800],
+              fontWeight: FontWeight.w600,
+            ),
+          ),
+        ),
       ],
     );
   }
@@ -270,20 +313,21 @@ class HomePage extends StatelessWidget {
         ),
         SizedBox(height: 24),
 
-        // Reservation Management button (implemented)
+        // Reservation Management button - Xing's module
         _buildModuleButton(
           context: context,
           title: 'Reservation Page',
-          subtitle: 'Manage flight reservations and bookings - READY!',
+          subtitle: 'Manage flight reservations and bookings',
           route: '/reservations',
           color: Colors.blue,
           icon: Icons.flight_takeoff,
           isImplemented: true,
+          contributor: 'Xing',
         ),
 
         SizedBox(height: 16),
 
-        // Other module buttons (placeholders for team members)
+        // Customer Management button - Aiyar's module
         _buildModuleButton(
           context: context,
           title: 'Customer List Page',
@@ -292,10 +336,12 @@ class HomePage extends StatelessWidget {
           color: Colors.green,
           icon: Icons.people,
           isImplemented: true,
+          contributor: 'Aiyar',
         ),
 
         SizedBox(height: 16),
 
+        // Airplane Management button - Jianye's module
         _buildModuleButton(
           context: context,
           title: 'Airplane List Page',
@@ -303,11 +349,13 @@ class HomePage extends StatelessWidget {
           route: '/airplanes',
           color: Colors.orange,
           icon: Icons.airplanemode_active,
-          isImplemented: false,
+          isImplemented: true,
+          contributor: 'Jianye',
         ),
 
         SizedBox(height: 16),
 
+        // Flights Management button - Zhang's module
         _buildModuleButton(
           context: context,
           title: 'Flights List Page',
@@ -316,91 +364,9 @@ class HomePage extends StatelessWidget {
           color: Colors.purple,
           icon: Icons.flight,
           isImplemented: true,
+          contributor: 'Zhang',
         ),
-
       ],
-    );
-  }
-
-  /// Builds the language testing button with proper internationalization demo
-  Widget _buildLanguageTestButton(BuildContext context) {
-    return Card(
-      elevation: 8,
-      child: InkWell(
-        borderRadius: BorderRadius.circular(12),
-        onTap: () => Navigator.pushNamed(context, '/language-test'),
-        child: Container(
-          decoration: BoxDecoration(
-            borderRadius: BorderRadius.circular(12),
-            gradient: LinearGradient(
-              colors: [
-                Colors.purple.withValues(alpha: 0.1),
-                Colors.purple.withValues(alpha: 0.05)
-              ],
-              begin: Alignment.topLeft,
-              end: Alignment.bottomRight,
-            ),
-          ),
-          child: Padding(
-            padding: EdgeInsets.all(16),
-            child: Row(
-              children: [
-                Container(
-                  width: 60,
-                  height: 60,
-                  decoration: BoxDecoration(
-                    color: Colors.purple.withValues(alpha: 0.2),
-                    borderRadius: BorderRadius.circular(30),
-                    border: Border.all(color: Colors.purple, width: 2),
-                  ),
-                  child: Icon(Icons.language, color: Colors.purple, size: 30),
-                ),
-                SizedBox(width: 16),
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(
-                        '🌍 Multi-Language Testing',
-                        style: TextStyle(
-                          fontSize: 18,
-                          fontWeight: FontWeight.bold,
-                          color: Colors.purple,
-                        ),
-                      ),
-                      SizedBox(height: 4),
-                      Text(
-                        'Test American vs British English with JSON files',
-                        style: TextStyle(
-                          fontSize: 14,
-                          color: Colors.grey[600],
-                        ),
-                      ),
-                      SizedBox(height: 4),
-                      Container(
-                        padding: EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                        decoration: BoxDecoration(
-                          color: Colors.purple,
-                          borderRadius: BorderRadius.circular(12),
-                        ),
-                        child: Text(
-                          'REQUIREMENT 8 - JSON DEMO',
-                          style: TextStyle(
-                            fontSize: 10,
-                            color: Colors.white,
-                            fontWeight: FontWeight.bold,
-                          ),
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-                Icon(Icons.arrow_forward_ios, color: Colors.purple, size: 20),
-              ],
-            ),
-          ),
-        ),
-      ),
     );
   }
 
@@ -413,6 +379,7 @@ class HomePage extends StatelessWidget {
     required Color color,
     required IconData icon,
     required bool isImplemented,
+    required String contributor,
   }) {
     return Card(
       elevation: isImplemented ? 8 : 4,
@@ -430,8 +397,8 @@ class HomePage extends StatelessWidget {
             borderRadius: BorderRadius.circular(12),
             gradient: LinearGradient(
               colors: [
-                color.withValues(alpha: 0.1),
-                color.withValues(alpha: 0.05)
+                color.withOpacity(0.1),
+                color.withOpacity(0.05)
               ],
               begin: Alignment.topLeft,
               end: Alignment.bottomRight,
@@ -445,7 +412,7 @@ class HomePage extends StatelessWidget {
                   width: 60,
                   height: 60,
                   decoration: BoxDecoration(
-                    color: color.withValues(alpha: 0.2),
+                    color: color.withOpacity(0.2),
                     borderRadius: BorderRadius.circular(30),
                     border: isImplemented ? Border.all(color: color, width: 2) : null,
                   ),
@@ -460,13 +427,35 @@ class HomePage extends StatelessWidget {
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      Text(
-                        title,
-                        style: TextStyle(
-                          fontSize: 18,
-                          fontWeight: FontWeight.bold,
-                          color: isImplemented ? color : Colors.grey[800],
-                        ),
+                      Row(
+                        children: [
+                          Expanded(
+                            child: Text(
+                              title,
+                              style: TextStyle(
+                                fontSize: 18,
+                                fontWeight: FontWeight.bold,
+                                color: isImplemented ? color : Colors.grey[800],
+                              ),
+                            ),
+                          ),
+                          // Contributor badge
+                          Container(
+                            padding: EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                            decoration: BoxDecoration(
+                              color: color.withOpacity(0.2),
+                              borderRadius: BorderRadius.circular(12),
+                            ),
+                            child: Text(
+                              contributor,
+                              style: TextStyle(
+                                fontSize: 12,
+                                color: color,
+                                fontWeight: FontWeight.w600,
+                              ),
+                            ),
+                          ),
+                        ],
                       ),
                       SizedBox(height: 4),
                       Text(
@@ -476,15 +465,21 @@ class HomePage extends StatelessWidget {
                           color: Colors.grey[600],
                         ),
                       ),
-                      if (!isImplemented) ...[
+                      if (isImplemented) ...[
                         SizedBox(height: 4),
-                        Text(
-                          'Coming Soon - Team Member Implementation',
-                          style: TextStyle(
-                            fontSize: 12,
-                            color: Colors.orange,
-                            fontStyle: FontStyle.italic,
-                          ),
+                        Row(
+                          children: [
+                            Icon(Icons.check_circle, size: 14, color: Colors.green),
+                            SizedBox(width: 4),
+                            Text(
+                              'Ready to use',
+                              style: TextStyle(
+                                fontSize: 12,
+                                color: Colors.green,
+                                fontWeight: FontWeight.w500,
+                              ),
+                            ),
+                          ],
                         ),
                       ],
                     ],
@@ -531,6 +526,18 @@ class HomePage extends StatelessWidget {
             ),
             textAlign: TextAlign.center,
           ),
+          SizedBox(height: 8),
+          Divider(),
+          SizedBox(height: 8),
+          Text(
+            'Team Members: Xing, Aiyar, Zhang, Jianye',
+            style: TextStyle(
+              fontSize: 12,
+              color: Colors.grey[600],
+              fontWeight: FontWeight.w500,
+            ),
+            textAlign: TextAlign.center,
+          ),
         ],
       ),
     );
@@ -558,273 +565,6 @@ class HomePage extends StatelessWidget {
           onPressed: () {
             ScaffoldMessenger.of(context).hideCurrentSnackBar();
           },
-        ),
-      ),
-    );
-  }
-}
-
-/// Multi-language testing widget with JSON-based internationalization
-/// Demonstrates American vs British English differences using translation files
-/// This satisfies Requirement 8 for multi-language support
-class LanguageTestingWidget extends StatefulWidget {
-  @override
-  _LanguageTestingWidgetState createState() => _LanguageTestingWidgetState();
-}
-
-class _LanguageTestingWidgetState extends State<LanguageTestingWidget> {
-  @override
-  Widget build(BuildContext context) {
-    final localizations = AppLocalizations.of(context);
-
-    return Scaffold(
-      appBar: AppBar(
-        title: Text('Multi-Language JSON Demo'),
-        backgroundColor: Colors.purple,
-        actions: [
-          // Quick language switch buttons in app bar
-          TextButton(
-            onPressed: () => MyApp.setLocale(context, Locale('en', 'US')),
-            child: Text('🇺🇸', style: TextStyle(fontSize: 20)),
-          ),
-          TextButton(
-            onPressed: () => MyApp.setLocale(context, Locale('en', 'GB')),
-            child: Text('🇬🇧', style: TextStyle(fontSize: 20)),
-          ),
-        ],
-      ),
-      body: Padding(
-        padding: EdgeInsets.all(20),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            // Current language indicator
-            _buildLanguageIndicator(context, localizations),
-
-            SizedBox(height: 20),
-
-            // Language switching section
-            _buildLanguageSwitcher(context),
-
-            SizedBox(height: 20),
-
-            // Spelling differences demonstration
-            _buildSpellingDifferences(context, localizations),
-
-            SizedBox(height: 20),
-
-            // JSON loading verification
-            _buildJsonVerification(context, localizations),
-          ],
-        ),
-      ),
-    );
-  }
-
-  /// Build current language indicator
-  Widget _buildLanguageIndicator(BuildContext context, AppLocalizations? localizations) {
-    return Card(
-      color: Colors.purple[50],
-      child: Padding(
-        padding: EdgeInsets.all(16),
-        child: Row(
-          children: [
-            Icon(Icons.language, color: Colors.purple, size: 32),
-            SizedBox(width: 16),
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    'Current Language Variant',
-                    style: TextStyle(
-                      fontSize: 18,
-                      fontWeight: FontWeight.bold,
-                      color: Colors.purple[800],
-                    ),
-                  ),
-                  SizedBox(height: 4),
-                  Text(
-                    localizations?.languageVariant ?? 'Loading...',
-                    style: TextStyle(
-                      fontSize: 16,
-                      color: Colors.purple[600],
-                    ),
-                  ),
-                ],
-              ),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-
-  /// Build language switching controls
-  Widget _buildLanguageSwitcher(BuildContext context) {
-    return Card(
-      child: Padding(
-        padding: EdgeInsets.all(16),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Text(
-              'Language Switching (JSON-based)',
-              style: TextStyle(
-                fontSize: 18,
-                fontWeight: FontWeight.bold,
-              ),
-            ),
-            SizedBox(height: 16),
-            Row(
-              children: [
-                Expanded(
-                  child: ElevatedButton(
-                    onPressed: () => MyApp.setLocale(context, Locale('en', 'US')),
-                    style: ElevatedButton.styleFrom(
-                      backgroundColor: Colors.blue,
-                      foregroundColor: Colors.white,
-                    ),
-                    child: Text('🇺🇸 American English'),
-                  ),
-                ),
-                SizedBox(width: 16),
-                Expanded(
-                  child: ElevatedButton(
-                    onPressed: () => MyApp.setLocale(context, Locale('en', 'GB')),
-                    style: ElevatedButton.styleFrom(
-                      backgroundColor: Colors.red,
-                      foregroundColor: Colors.white,
-                    ),
-                    child: Text('🇬🇧 British English'),
-                  ),
-                ),
-              ],
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-
-  /// Build spelling differences demonstration
-  Widget _buildSpellingDifferences(BuildContext context, AppLocalizations? localizations) {
-    return Card(
-      child: Padding(
-        padding: EdgeInsets.all(16),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Text(
-              'Spelling Differences from JSON Files',
-              style: TextStyle(
-                fontSize: 18,
-                fontWeight: FontWeight.bold,
-              ),
-            ),
-            SizedBox(height: 16),
-
-            _buildSpellingComparison('Color/Colour:', localizations?.color ?? 'Loading...'),
-            _buildSpellingComparison('Center/Centre:', localizations?.center ?? 'Loading...'),
-            _buildSpellingComparison('Favorite/Favourite:', localizations?.favorite ?? 'Loading...'),
-            _buildSpellingComparison('Organize/Organise:', localizations?.organize ?? 'Loading...'),
-            _buildSpellingComparison('License/Licence:', localizations?.license ?? 'Loading...'),
-
-            SizedBox(height: 16),
-
-            Container(
-              padding: EdgeInsets.all(12),
-              decoration: BoxDecoration(
-                color: Colors.green[50],
-                borderRadius: BorderRadius.circular(8),
-                border: Border.all(color: Colors.green[200]!),
-              ),
-              child: Text(
-                '✅ Requirement 8 completed: Multi-language support using JSON translation files. '
-                    'American English (en.json) vs British English (en_GB.json) spelling differences demonstrated.',
-                style: TextStyle(
-                  fontSize: 14,
-                  color: Colors.green[800],
-                  fontWeight: FontWeight.w500,
-                ),
-              ),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-
-  /// Build spelling comparison row
-  Widget _buildSpellingComparison(String label, String currentWord) {
-    return Padding(
-      padding: EdgeInsets.symmetric(vertical: 6),
-      child: Row(
-        children: [
-          SizedBox(
-            width: 140,
-            child: Text(
-              label,
-              style: TextStyle(
-                fontWeight: FontWeight.w500,
-                color: Colors.grey[700],
-              ),
-            ),
-          ),
-          Icon(Icons.arrow_forward, color: Colors.grey, size: 16),
-          SizedBox(width: 8),
-          Container(
-            padding: EdgeInsets.symmetric(horizontal: 12, vertical: 4),
-            decoration: BoxDecoration(
-              color: Colors.blue[100],
-              borderRadius: BorderRadius.circular(4),
-            ),
-            child: Text(
-              currentWord,
-              style: TextStyle(
-                fontWeight: FontWeight.bold,
-                color: Colors.blue[800],
-                fontSize: 16,
-              ),
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-
-  /// Build JSON verification section
-  Widget _buildJsonVerification(BuildContext context, AppLocalizations? localizations) {
-    return Card(
-      child: Padding(
-        padding: EdgeInsets.all(16),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Text(
-              'JSON Translation Verification',
-              style: TextStyle(
-                fontSize: 18,
-                fontWeight: FontWeight.bold,
-              ),
-            ),
-            SizedBox(height: 16),
-
-            Text('Translations loaded: ${localizations?.translationCount ?? 0}'),
-            SizedBox(height: 8),
-            Text('Current locale: ${Localizations.localeOf(context)}'),
-            SizedBox(height: 8),
-            Text('Files: assets/translations/en.json & en_GB.json'),
-
-            SizedBox(height: 16),
-
-            // Test some translations
-            if (localizations != null) ...[
-              Text('App Title: "${localizations.appTitle}"'),
-              Text('Customer ID: "${localizations.customerID}"'),
-              Text('Add Record: "${localizations.addRecord}"'),
-            ],
-          ],
         ),
       ),
     );

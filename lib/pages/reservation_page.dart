@@ -4,6 +4,7 @@
 /// * Requirement 8: Multi-language support with English and French
 /// * Clean and simple interface design for flight reservations
 /// * Clear language switching demonstration
+/// * Full CRUD operations including edit functionality
 library;
 
 import 'package:flutter/material.dart';
@@ -36,6 +37,9 @@ class _ReservationPageState extends State<ReservationPage> {
 
   /// Currently selected reservation for details view
   Reservation? _selectedReservation;
+
+  /// Edit mode flag - true when editing existing reservation
+  bool _isEditMode = false;
 
   /// Loading state indicator
   bool _isLoading = true;
@@ -121,18 +125,21 @@ class _ReservationPageState extends State<ReservationPage> {
   /// better user experience across app sessions
   Future<void> _loadFormData() async {
     try {
-      final customerId = await _encryptedPrefs?.getString('last_customer_id');
-      final flightId = await _encryptedPrefs?.getString('last_flight_id');
-      final flightDate = await _encryptedPrefs?.getString('last_flight_date');
-      final reservationName = await _encryptedPrefs?.getString('last_reservation_name');
+      // Only load saved data if not in edit mode
+      if (!_isEditMode) {
+        final customerId = await _encryptedPrefs?.getString('last_customer_id');
+        final flightId = await _encryptedPrefs?.getString('last_flight_id');
+        final flightDate = await _encryptedPrefs?.getString('last_flight_date');
+        final reservationName = await _encryptedPrefs?.getString('last_reservation_name');
 
-      if (mounted) {
-        setState(() {
-          _customerIdController.text = customerId ?? '';
-          _flightIdController.text = flightId ?? '';
-          _flightDateController.text = flightDate ?? '';
-          _reservationNameController.text = reservationName ?? '';
-        });
+        if (mounted) {
+          setState(() {
+            _customerIdController.text = customerId ?? '';
+            _flightIdController.text = flightId ?? '';
+            _flightDateController.text = flightDate ?? '';
+            _reservationNameController.text = reservationName ?? '';
+          });
+        }
       }
     } catch (e) {
       print('⚠️ Warning: Could not load form data: $e');
@@ -222,6 +229,95 @@ class _ReservationPageState extends State<ReservationPage> {
         );
       }
     }
+  }
+
+  /// Update existing reservation in database
+  ///
+  /// Validates form data, updates reservation with new values,
+  /// saves to database and updates UI with success feedback
+  Future<void> _updateReservation() async {
+    // Validate form input
+    if (!_validateForm() || _selectedReservation == null) {
+      return;
+    }
+
+    try {
+      // Create updated reservation with same ID
+      final updatedReservation = Reservation(
+        id: _selectedReservation!.id,
+        customerId: int.parse(_customerIdController.text),
+        flightId: int.parse(_flightIdController.text),
+        flightDate: _flightDateController.text,
+        reservationName: _reservationNameController.text.trim(),
+      );
+
+      // Update in database
+      await _database!.reservationDao.updateReservation(updatedReservation);
+
+      // Save form data to preferences
+      await _saveFormData();
+
+      // Reload records
+      await _loadReservations();
+
+      // Update selected reservation and exit edit mode
+      setState(() {
+        _selectedReservation = updatedReservation;
+        _isEditMode = false;
+      });
+
+      // Clear form
+      _clearForm();
+
+      // Show success message
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(_getText(
+                'Reservation updated successfully!',
+                'Réservation mise à jour avec succès!'
+            )),
+            backgroundColor: Colors.blue,
+          ),
+        );
+      }
+    } catch (e) {
+      print('❌ Error updating reservation: $e');
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(_getText(
+                'Error updating reservation',
+                'Erreur lors de la mise à jour de la réservation'
+            )),
+            backgroundColor: Colors.red,
+          ),
+        );
+      }
+    }
+  }
+
+  /// Enter edit mode for selected reservation
+  ///
+  /// Populates form fields with selected reservation data
+  void _startEditReservation() {
+    if (_selectedReservation == null) return;
+
+    setState(() {
+      _isEditMode = true;
+      _customerIdController.text = _selectedReservation!.customerId.toString();
+      _flightIdController.text = _selectedReservation!.flightId.toString();
+      _flightDateController.text = _selectedReservation!.flightDate;
+      _reservationNameController.text = _selectedReservation!.reservationName;
+    });
+  }
+
+  /// Cancel edit mode and clear form
+  void _cancelEdit() {
+    setState(() {
+      _isEditMode = false;
+      _clearForm();
+    });
   }
 
   /// Save current form data to encrypted preferences
@@ -349,6 +445,7 @@ class _ReservationPageState extends State<ReservationPage> {
         if (_selectedReservation?.id == reservation.id) {
           setState(() {
             _selectedReservation = null;
+            _isEditMode = false;
           });
         }
 
@@ -480,7 +577,9 @@ class _ReservationPageState extends State<ReservationPage> {
                 const SizedBox(height: 8),
                 Text('6. ${_getText('Tap any reservation to view details', 'Appuyez sur une réservation pour voir les détails')}'),
                 const SizedBox(height: 8),
-                Text('7. ${_getText('Use delete button to remove reservations', 'Utilisez le bouton supprimer pour enlever des réservations')}'),
+                Text('7. ${_getText('Use edit button to modify reservations', 'Utilisez le bouton modifier pour éditer les réservations')}'),
+                const SizedBox(height: 8),
+                Text('8. ${_getText('Use delete button to remove reservations', 'Utilisez le bouton supprimer pour enlever des réservations')}'),
                 const SizedBox(height: 16),
 
                 // Business Rules Section
@@ -590,7 +689,7 @@ class _ReservationPageState extends State<ReservationPage> {
       );
     } else {
       // Phone layout: Full screen list/form or details
-      if (_selectedReservation != null) {
+      if (_selectedReservation != null && !_isEditMode) {
         return _buildDetailsPanel();
       } else {
         return _buildListAndForm();
@@ -604,15 +703,28 @@ class _ReservationPageState extends State<ReservationPage> {
   Widget _buildListAndForm() {
     return Column(
       children: [
-        // Add Reservation Form
+        // Add/Edit Reservation Form
         Padding(
           padding: const EdgeInsets.all(16),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Text(
-                _getText('Add New Reservation', 'Ajouter une nouvelle réservation'),
-                style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+              Row(
+                children: [
+                  Expanded(
+                    child: Text(
+                      _isEditMode
+                          ? _getText('Edit Reservation', 'Modifier la réservation')
+                          : _getText('Add New Reservation', 'Ajouter une nouvelle réservation'),
+                      style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+                    ),
+                  ),
+                  if (_isEditMode)
+                    TextButton(
+                      onPressed: _cancelEdit,
+                      child: Text(_getText('Cancel', 'Annuler')),
+                    ),
+                ],
               ),
               const SizedBox(height: 16),
               TextField(
@@ -668,11 +780,13 @@ class _ReservationPageState extends State<ReservationPage> {
                 children: [
                   Expanded(
                     child: ElevatedButton.icon(
-                      onPressed: _addReservation,
-                      icon: const Icon(Icons.add),
-                      label: Text(_getText('Add Reservation', 'Ajouter une Réservation')),
+                      onPressed: _isEditMode ? _updateReservation : _addReservation,
+                      icon: Icon(_isEditMode ? Icons.update : Icons.add),
+                      label: Text(_isEditMode
+                          ? _getText('Update Reservation', 'Mettre à jour')
+                          : _getText('Add Reservation', 'Ajouter une Réservation')),
                       style: ElevatedButton.styleFrom(
-                        backgroundColor: Colors.blue,
+                        backgroundColor: _isEditMode ? Colors.orange : Colors.blue,
                         foregroundColor: Colors.white,
                         padding: const EdgeInsets.symmetric(vertical: 12),
                       ),
@@ -763,6 +877,16 @@ class _ReservationPageState extends State<ReservationPage> {
                       if (isSelected)
                         const Icon(Icons.check_circle, color: Colors.blue),
                       IconButton(
+                        icon: const Icon(Icons.edit, color: Colors.orange),
+                        onPressed: () {
+                          setState(() {
+                            _selectedReservation = reservation;
+                          });
+                          _startEditReservation();
+                        },
+                        tooltip: _getText('Edit reservation', 'Modifier la réservation'),
+                      ),
+                      IconButton(
                         icon: const Icon(Icons.delete, color: Colors.red),
                         onPressed: () => _deleteReservation(reservation),
                         tooltip: _getText('Delete reservation', 'Supprimer la réservation'),
@@ -834,9 +958,11 @@ class _ReservationPageState extends State<ReservationPage> {
                     });
                   },
                 ),
-                Text(
-                  _getText('Reservation Details', 'Détails de la Réservation'),
-                  style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+                Expanded(
+                  child: Text(
+                    _getText('Reservation Details', 'Détails de la Réservation'),
+                    style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+                  ),
                 ),
               ],
             )
@@ -889,15 +1015,35 @@ class _ReservationPageState extends State<ReservationPage> {
 
           const Spacer(),
 
-          ElevatedButton.icon(
-            onPressed: () => _deleteReservation(_selectedReservation!),
-            icon: const Icon(Icons.delete),
-            label: Text(_getText('Delete Reservation', 'Supprimer la Réservation')),
-            style: ElevatedButton.styleFrom(
-              backgroundColor: Colors.red,
-              foregroundColor: Colors.white,
-              minimumSize: const Size(double.infinity, 48),
-            ),
+          // Action buttons
+          Row(
+            children: [
+              Expanded(
+                child: ElevatedButton.icon(
+                  onPressed: _startEditReservation,
+                  icon: const Icon(Icons.edit),
+                  label: Text(_getText('Edit Reservation', 'Modifier la Réservation')),
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: Colors.orange,
+                    foregroundColor: Colors.white,
+                    minimumSize: const Size(double.infinity, 48),
+                  ),
+                ),
+              ),
+              const SizedBox(width: 12),
+              Expanded(
+                child: ElevatedButton.icon(
+                  onPressed: () => _deleteReservation(_selectedReservation!),
+                  icon: const Icon(Icons.delete),
+                  label: Text(_getText('Delete', 'Supprimer')),
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: Colors.red,
+                    foregroundColor: Colors.white,
+                    minimumSize: const Size(double.infinity, 48),
+                  ),
+                ),
+              ),
+            ],
           ),
         ],
       ),
